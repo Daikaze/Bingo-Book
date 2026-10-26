@@ -1,4 +1,4 @@
-# Bingo Book & Target Book v0.3.4 — Foundry VTT v11
+# Bingo Book & Target Book v0.3.5 — Foundry VTT v11
 
 A gallery for **ready-made wanted poster images**, with two independently permissioned books. No poster-template generator is needed. The editor retains the light classic Foundry v11 paper layout.
 
@@ -17,7 +17,7 @@ A gallery for **ready-made wanted poster images**, with two independently permis
 
 Manifest URL: `https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/module.json`
 
-ZIP: [`dist/bingo-book-v11-v0.3.4.zip`](dist/bingo-book-v11-v0.3.4.zip)
+ZIP: [`dist/bingo-book-v11-v0.3.5.zip`](dist/bingo-book-v11-v0.3.5.zip)
 
 Always **back up your world** before upgrading. The module reuses existing v0.2/v0.3 Bingo & Target Journal pages, including their images and status metadata. It does not delete the source pictures. The original shared permission list is retained for migration. After updating, open **Players** to adjust separate book access.
 
@@ -29,3 +29,9 @@ Automated test checks cover permission migration, journal access synchronization
 - Restores the original v0.3.2 two-pane book layout for players and GMs. Removes the separate player gallery introduced in v0.3.3.
 - Chat posters now use the whole image with its natural aspect ratio and responsive width. Frame, image, rank and status seal adapt to the narrow chat sidebar without cropping.
 - Preserves separate Bingo/Target player access and Show in Chat (all or selected recipients).
+
+## Version 0.3.5
+
+- Restores the larger angled **stamp** lettering in chat without clipping the poster.
+- Preserves the full poster image proportions and the two-pane book interface from v0.3.4.
+- Player access and targeted Show in Chat recipients remain unchanged.

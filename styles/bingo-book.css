@@ -387,8 +387,17 @@
   max-width: 65%; white-space: nowrap; line-height: 1.1; padding: 3px 5px;
 }
 .bb-chat-poster .bb-stamp {
-  top: auto; bottom: 8%; left: auto; right: 8%;
-  max-width: 78%; font-size: clamp(9px, 3.5cqw, 15px);
-  padding: 2px 5px; white-space: nowrap; line-height: 1.15;
-  overflow: visible; transform: rotate(-6deg);
+  top: auto;
+  bottom: 8%;
+  left: auto;
+  right: 7%;
+  max-width: 88%;
+  font-size: clamp(14px, 8.5cqw, 28px);
+  padding: 4px 10px;
+  border-width: 3px;
+  white-space: nowrap;
+  line-height: 1.08;
+  letter-spacing: .04em;
+  overflow: visible;
+  transform: rotate(-7deg);
 }
