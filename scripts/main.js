@@ -31,6 +31,26 @@ const localPageUpdates = new Set();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const imgSrc = path => path ? (/^(https?:|data:|blob:)/i.test(path) ? path : foundry.utils.getRoute(path)) : '';
 
+
+const DEFAULT_STAMP = Object.freeze({ scale: 1, opacity: 0.78, rotate: -18, x: 50, y: 39 });
+function clamp(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+function stampSettings(page) {
+  return {
+    scale: clamp(page?.getFlag(MOD, 'stampScale'), 0.5, 2.5, DEFAULT_STAMP.scale),
+    opacity: clamp(page?.getFlag(MOD, 'stampOpacity'), 0.2, 1, DEFAULT_STAMP.opacity),
+    rotate: clamp(page?.getFlag(MOD, 'stampRotate'), -45, 45, DEFAULT_STAMP.rotate),
+    x: clamp(page?.getFlag(MOD, 'stampX'), 10, 90, DEFAULT_STAMP.x),
+    y: clamp(page?.getFlag(MOD, 'stampY'), 10, 90, DEFAULT_STAMP.y)
+  };
+}
+function stampStyleAttr(page) {
+  const stamp = stampSettings(page);
+  return `--bb-stamp-scale:${stamp.scale}; --bb-stamp-opacity:${stamp.opacity}; --bb-stamp-rotate:${stamp.rotate}deg; --bb-stamp-x:${stamp.x}%; --bb-stamp-y:${stamp.y}%;`;
+}
+
 function renderApp(app) {
   if (!app) return;
   return app.render(true);
@@ -148,7 +168,7 @@ function previewHTML(page, includeNotes = true) {
   return `
     <div class="bb-preview-wrap">
       <div class="bb-poster-card bg-${esc(bg)}" data-status="${esc(status)}">
-        <div class="bb-poster-inner">
+        <div class="bb-poster-inner" style="${esc(stampStyleAttr(page))}">
           <div class="bb-rank-badge rank-${esc(rank)}">Rank ${esc(rank)}</div>
           <img class="bb-poster-image" src="${esc(imgSrc(image))}" alt="">
           ${status && status !== 'None' ? `<div class="bb-stamp stamp-${esc(status.toLowerCase())}">${esc(status)}</div>` : ''}
@@ -266,7 +286,7 @@ function chatPosterHTML(page, book) {
   return `<div class="bb-chat-poster">
     <div class="bb-chat-heading">${esc(BOOKS[book])}</div>
     <div class="bb-poster-card bg-${bg}">
-      <div class="bb-poster-inner">
+      <div class="bb-poster-inner" style="${esc(stampStyleAttr(page))}">
         <img class="bb-poster-image" src="${esc(imgSrc(image))}" alt="${esc(page.name)}">
         <div class="bb-rank-badge rank-${rank}">Rank ${rank}</div>
         ${status !== 'None' ? `<div class="bb-stamp stamp-${esc(status.toLowerCase())}">${esc(status)}</div>` : ''}
@@ -313,6 +333,7 @@ function formHTML(page, gm) {
   const background = page.getFlag(MOD, 'background') ?? 'parchment';
   const notes = page.getFlag(MOD, 'notes') ?? '';
   const bounty = bountyFor(page);
+  const stamp = stampSettings(page);
 
   return `
     <section class="bb-editor">
@@ -347,6 +368,17 @@ function formHTML(page, gm) {
             ${gm ? `<input type="number" min="0" step="1" data-field="bounty" placeholder="e.g. 5500" value="${esc(bounty ?? '')}">` : ''}
             <label>Background</label>
             ${gm ? `<select data-field="background">${Object.entries(BACKGROUNDS).map(([k,v]) => `<option value="${esc(k)}"${k === background ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>` : `<div class="bb-readonly">${esc(BACKGROUNDS[background] || background)}</div>`}
+            ${gm ? `<div class="bb-stamp-settings">
+              <h4>Custom Stamp Settings</h4>
+              <div class="bb-stamp-grid">
+                <label>Size %<input type="number" min="50" max="250" step="5" data-field="stampScale" value="${esc(Math.round(stamp.scale * 100))}"></label>
+                <label>Opacity %<input type="number" min="20" max="100" step="5" data-field="stampOpacity" value="${esc(Math.round(stamp.opacity * 100))}"></label>
+                <label>Rotation °<input type="number" min="-45" max="45" step="1" data-field="stampRotate" value="${esc(stamp.rotate)}"></label>
+                <label>Position X %<input type="number" min="10" max="90" step="1" data-field="stampX" value="${esc(stamp.x)}"></label>
+                <label>Position Y %<input type="number" min="10" max="90" step="1" data-field="stampY" value="${esc(stamp.y)}"></label>
+                <div class="bb-stamp-reset-wrap"><button type="button" data-act="reset-stamp"><i class="fa-solid fa-rotate-left"></i> Reset Stamp</button></div>
+              </div>
+            </div>` : ''}
           </div>
           <div class="bb-section">
             <label>Notes</label>
@@ -529,6 +561,19 @@ function mount(root, app) {
       case 'toggle-chat': S.chatOpen = !S.chatOpen; refresh(); break;
       case 'cancel-chat': S.chatOpen = false; refresh(); break;
       case 'send-chat': await sendPosterToChat(currentPage(), S.book); break;
+      case 'reset-stamp': {
+        const page = currentPage();
+        if (!page) break;
+        await Promise.all([
+          page.setFlag(MOD, 'stampScale', DEFAULT_STAMP.scale),
+          page.setFlag(MOD, 'stampOpacity', DEFAULT_STAMP.opacity),
+          page.setFlag(MOD, 'stampRotate', DEFAULT_STAMP.rotate),
+          page.setFlag(MOD, 'stampX', DEFAULT_STAMP.x),
+          page.setFlag(MOD, 'stampY', DEFAULT_STAMP.y)
+        ]);
+        refresh();
+        break;
+      }
       case 'toggle-players': S.showPlayers = !S.showPlayers; refresh(); break;
       case 'add-poster': {
         const journal = await ensureBookJournal(S.book);
@@ -536,7 +581,7 @@ function mount(root, app) {
           name: 'New Poster',
           type: 'text',
           text: { content: '', format: 1 },
-          flags: { [MOD]: { image: '', status: 'None', rank: S.rankFilter === 'all' ? 'D' : S.rankFilter, background: 'parchment', uuid: '', notes: '' } }
+          flags: { [MOD]: { image: '', status: 'None', rank: S.rankFilter === 'all' ? 'D' : S.rankFilter, background: 'parchment', uuid: '', notes: '', stampScale: DEFAULT_STAMP.scale, stampOpacity: DEFAULT_STAMP.opacity, stampRotate: DEFAULT_STAMP.rotate, stampX: DEFAULT_STAMP.x, stampY: DEFAULT_STAMP.y } }
         }]);
         S.selected = created?.[0]?.id ?? null;
         refresh();
@@ -628,6 +673,19 @@ function mount(root, app) {
           break;
         }
         case 'background': await page.setFlag(MOD, 'background', value); break;
+        case 'stampScale': {
+          const amount = clamp(Number(value) / 100, 0.5, 2.5, DEFAULT_STAMP.scale);
+          await page.setFlag(MOD, 'stampScale', amount);
+          break;
+        }
+        case 'stampOpacity': {
+          const amount = clamp(Number(value) / 100, 0.2, 1, DEFAULT_STAMP.opacity);
+          await page.setFlag(MOD, 'stampOpacity', amount);
+          break;
+        }
+        case 'stampRotate': await page.setFlag(MOD, 'stampRotate', clamp(value, -45, 45, DEFAULT_STAMP.rotate)); break;
+        case 'stampX': await page.setFlag(MOD, 'stampX', clamp(value, 10, 90, DEFAULT_STAMP.x)); break;
+        case 'stampY': await page.setFlag(MOD, 'stampY', clamp(value, 10, 90, DEFAULT_STAMP.y)); break;
         case 'notes': await page.setFlag(MOD, 'notes', value); break;
         default: return;
       }

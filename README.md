@@ -48,3 +48,8 @@ Automated test checks cover permission migration, journal access synchronization
 ## v0.3.7: Bounty sorting
 
 Within any Rank S–D category, select Original order, Highest to Lowest, or Lowest to Highest. The choice is separate for Bingo Book and Target Book. A GM may enter Bounty (GP) for each poster; old reward flags are also recognized. The module does not attempt to read gold amounts out of uploaded poster images. Entries without bounty appear last in either numeric order. Nothing else in the poster or chat UI changes.
+
+
+## v0.3.8: Custom Stamp Settings
+
+Added GM-side custom stamp settings for each poster: size, opacity, rotation, X position and Y position, plus a Reset Stamp button. These settings affect the book preview, player view and Show in Chat while keeping the uncropped responsive poster layout.
