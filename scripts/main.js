@@ -24,6 +24,7 @@ const S = {
 };
 let win = null;
 let renderNonce = 0;
+const localPageUpdates = new Set();
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const imgSrc = path => path ? (/^(https?:|data:|blob:)/i.test(path) ? path : foundry.utils.getRoute(path)) : '';
@@ -304,6 +305,58 @@ function formHTML(page, gm) {
     </section>`;
 }
 
+// Keep the position inside both scrollable book panes during a data refresh.
+// Replacing root.innerHTML without this reset the Foundry V11 editor to the top
+// every time a select field updated a JournalEntryPage flag.
+function captureView(root) {
+  const active = root.ownerDocument?.activeElement;
+  const field = active && root.contains(active) ? active.getAttribute('data-field') : null;
+  return {
+    editorTop: root.querySelector('.bb-editor')?.scrollTop ?? 0,
+    sidebarTop: root.querySelector('.bb-poster-list')?.scrollTop ?? 0,
+    recipientsTop: root.querySelector('.bb-chat-users')?.scrollTop ?? 0,
+    focusedField: field
+  };
+}
+
+function restoreView(root, view) {
+  if (!view) return;
+  const editor = root.querySelector('.bb-editor');
+  const sidebar = root.querySelector('.bb-poster-list');
+  const recipients = root.querySelector('.bb-chat-users');
+  if (editor) editor.scrollTop = view.editorTop;
+  if (sidebar) sidebar.scrollTop = view.sidebarTop;
+  if (recipients) recipients.scrollTop = view.recipientsTop;
+  if (view.focusedField) {
+    const field = root.querySelector(`[data-field="${view.focusedField}"]`);
+    if (field?.focus) {
+      try { field.focus({ preventScroll: true }); } catch (_) { /* not supported */ }
+      // Reapply in case the host/browser scrolled a focused dropdown into view.
+      if (editor) editor.scrollTop = view.editorTop;
+      if (sidebar) sidebar.scrollTop = view.sidebarTop;
+    }
+  }
+}
+
+// Update only the affected preview and the list row after the GM changes a
+// dropdown. Avoids destroying the dropdown and scrolling the form to the top.
+function updateVisiblePoster(root, page) {
+  const preview = root.querySelector('.bb-preview-wrap');
+  if (preview) preview.outerHTML = previewHTML(page);
+  const activeRow = root.querySelector('.bb-list-item.active');
+  if (activeRow) {
+    const title = activeRow.querySelector('.bb-li-name');
+    if (title) title.textContent = page.name;
+    const sub = activeRow.querySelector('.bb-li-sub');
+    if (sub) {
+      const status = ({ active: 'Wanted', claimed: 'Captured', lost: 'Missing', dropped: 'Cleared' })[page.getFlag(MOD, 'status')] || page.getFlag(MOD, 'status') || 'None';
+      sub.textContent = `${status} • Rank ${rankFor(page.getFlag(MOD, 'rank'))}`;
+    }
+  }
+  const footerTitle = root.querySelector('.bb-preview-footer-title');
+  if (footerTitle) footerTitle.textContent = page.name;
+}
+
 async function draw(root) {
   if (!root?.isConnected) return;
   const nonce = ++renderNonce;
@@ -320,6 +373,8 @@ async function draw(root) {
   if (!posters.some(p => p.id === S.selected)) S.selected = posters[0]?.id ?? null;
   const page = getSelectedPage();
 
+  // Snapshot right before replacing the markup (after any asynchronous book setup).
+  const savedView = captureView(root);
   root.innerHTML = `
     <div class="bb-shell">
       <header class="bb-topbar">
@@ -355,6 +410,7 @@ async function draw(root) {
     </div>`;
 
   if (nonce !== renderNonce) return;
+  restoreView(root, savedView);
 }
 
 function refresh() {
@@ -465,13 +521,30 @@ function mount(root, app) {
     const page = currentPage();
     if (!page) return;
     const value = field.value;
-    switch (field.dataset.field) {
-      case 'name': await page.update({ name: value.trim() || 'New Poster' }); break;
-      case 'uuid': await page.setFlag(MOD, 'uuid', value); break;
-      case 'status': await page.setFlag(MOD, 'status', value); break;
-      case 'rank': await page.setFlag(MOD, 'rank', value); break;
-      case 'background': await page.setFlag(MOD, 'background', value); break;
-      case 'notes': await page.setFlag(MOD, 'notes', value); break;
+    const id = page.uuid || page.id;
+    const view = captureView(root);
+    localPageUpdates.add(id);
+    try {
+      switch (field.dataset.field) {
+        case 'name': await page.update({ name: value.trim() || 'New Poster' }); break;
+        case 'uuid': await page.setFlag(MOD, 'uuid', value); break;
+        case 'status': await page.setFlag(MOD, 'status', value); break;
+        case 'rank': await page.setFlag(MOD, 'rank', value); break;
+        case 'background': await page.setFlag(MOD, 'background', value); break;
+        case 'notes': await page.setFlag(MOD, 'notes', value); break;
+        default: return;
+      }
+      // A user may select another poster while the save is in-flight.
+      if (currentPage()?.id === page.id) {
+        updateVisiblePoster(root, page);
+        restoreView(root, view);
+      }
+    } catch (error) {
+      console.error(`${MOD} | Failed to save poster`, error);
+      ui.notifications.error('Bingo Book: could not save this change.');
+      refresh();
+    } finally {
+      localPageUpdates.delete(id);
     }
   });
 
@@ -547,9 +620,14 @@ Hooks.on('getSceneControlButtons', controls => {
   group?.tools.push(tool);
 });
 
-for (const hook of ['createJournalEntryPage', 'updateJournalEntryPage', 'deleteJournalEntryPage']) {
+for (const hook of ['createJournalEntryPage', 'deleteJournalEntryPage']) {
   Hooks.on(hook, () => refreshSoon());
 }
+Hooks.on('updateJournalEntryPage', page => {
+  // The editing client already updates its own preview without rebuilding the form.
+  if (localPageUpdates.has(page.uuid || page.id)) return;
+  refreshSoon();
+});
 
 Hooks.on('updateJournalEntry', journal => {
   if (journal.getFlag(MOD, 'bookRoot') || journal.getFlag(MOD, 'book')) refreshSoon();

@@ -1,36 +1,39 @@
-name: Publish Bingo Book v11
+name: Build Bingo Book installer
 on:
   push:
+    branches: [main]
     paths:
-      - "bingo-book-src.tar.xz"
+      - "scripts/**"
+      - "styles/**"
+      - "module.json"
+      - "templates/**"
+      - "lang/**"
+      - "README.md"
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
-  publish:
+  package:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack v0.3.0 and build installer
+      - name: Build Foundry module zip
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f bingo-book-src.tar.xz ]; then
-            echo "No source archive to publish."
-            exit 0
-          fi
-          tar -xJf bingo-book-src.tar.xz
-          mkdir -p dist
-          zip -qr dist/bingo-book-v11-v0.3.0.zip bingo-book
-          cp -a bingo-book/. .
-          rm -rf bingo-book bingo-book-src.tar.xz
-      - name: Commit updated module and distribution
-        shell: bash
+          VERSION=$(python3 -c "import json; print(json.load(open('module.json'))['version'])")
+          mkdir -p dist pack/bingo-book
+          cp module.json README.md pack/bingo-book/
+          cp -R scripts styles templates lang pack/bingo-book/
+          cd pack
+          zip -qr "../dist/bingo-book-v11-v${VERSION}.zip" bingo-book
+      - name: Commit distribution archive
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add dist/
           if ! git diff --cached --quiet; then
-            git commit -m "Publish Bingo Book v0.3.0 (Foundry v11)"
+            git commit -m "Build Bingo Book installer from source"
             git push
           fi
