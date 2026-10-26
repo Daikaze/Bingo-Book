@@ -1,39 +1,23 @@
 /**
- * Bingo Book + Target Book — Foundry VTT 11.
- * Two top-level books, GM-owned templates, journal-backed entries and player access.
- * No sample templates or preset poster art are included.
+ * Bingo Book & Target Book — Foundry VTT v11, v0.2.1.
+ * Each entry contains an entire, user-supplied poster IMAGE, not generated poster components.
+ * Traditional parchment/book visual style restored from the original v0.1.0 module.
+ * Existing v0.2.0 journals and older v0.1.0 category pages remain intact.
  */
-
 const MOD = "bingo-book";
 const BOOKS = {
-  bingo: { title: "Bingo Book", icon: "fa-solid fa-book-open", name: "Bingo Book (Storage)" },
-  target: { title: "Target Book", icon: "fa-solid fa-crosshairs", name: "Target Book (Storage)" }
+  bingo: { label: "Bingo Book", icon: "fa-solid fa-book-open", storage: "Bingo Book (Storage)" },
+  target: { label: "Target Book", icon: "fa-solid fa-crosshairs", storage: "Target Book (Storage)" }
 };
-const STATUSES = {
-  active: "Active",
-  claimed: "Claimed",
-  lost: "Lost",
-  dropped: "Dropped"
-};
-
-// On v11 use the original Application, Dialog, FilePicker and TextEditor APIs.
-const generation = () => Number(game.release?.generation || parseInt(game.version, 10) || 11);
+const STATUSES = { active: "Wanted", claimed: "Claimed", lost: "Lost", dropped: "Dropped" };
+const generation = () => Number(game.release?.generation ?? parseInt(game.version, 10) ?? 11);
 const USE_V2 = generation() >= 13 && !!foundry.applications?.api?.ApplicationV2;
-const filePickerClass = () => (USE_V2 && foundry.applications?.apps?.FilePicker?.implementation) || FilePicker;
-const textEditorClass = () => (USE_V2 && foundry.applications?.ux?.TextEditor?.implementation) || TextEditor;
-
-const escapeHTML = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
-const pathToUrl = path => {
-  if (!path) return "";
-  if (/^(https?:|data:|blob:|\/)/i.test(path)) return path;
-  return foundry.utils.getRoute ? foundry.utils.getRoute(path) : path;
-};
+const FP = () => (USE_V2 && foundry.applications?.apps?.FilePicker?.implementation) || FilePicker;
+const escapeHTML = text => String(text ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+const imageURL = path => !path ? "" : /^(https?:|data:|blob:|\/)/i.test(path) ? path : (foundry.utils.getRoute?.(path) || path);
 const allowedUsers = () => game.settings.get(MOD, "allowedUsers") || {};
-const canSee = (user = game.user) => !!(user.isGM || allowedUsers()[user.id]);
-const allTemplates = () => game.settings.get(MOD, "templates") || { bingo: [], target: [] };
-const bookTemplates = book => Array.isArray(allTemplates()[book]) ? allTemplates()[book] : [];
-const selectedBook = () => BOOKS[state.book] ? state.book : "bingo";
-const getBook = book => game.journal.find(j => j.getFlag(MOD, "book") === book) || null;
+const canSee = (user = game.user) => user.isGM || !!allowedUsers()[user.id];
+const getBook = book => game.journal.find(doc => doc.getFlag(MOD, "book") === book) || null;
 const getEntries = book => {
   const journal = getBook(book);
   if (!journal || (!game.user.isGM && !journal.testUserPermission(game.user, "OBSERVER"))) return [];
@@ -46,45 +30,32 @@ function ownershipFor() {
   for (const user of game.users) if (!user.isGM && allowedUsers()[user.id]) ownership[user.id] = 2;
   return ownership;
 }
-
 async function syncOwnership() {
   if (!game.user.isGM) return;
-  const desired = ownershipFor();
   for (const journal of game.journal) {
     if (!journal.getFlag(MOD, "book")) continue;
     const changes = {};
     for (const user of game.users) {
       if (user.isGM) continue;
-      if (desired[user.id] === 2 && journal.ownership?.[user.id] !== 2) changes[`ownership.${user.id}`] = 2;
-      if (!desired[user.id] && journal.ownership?.[user.id] !== undefined) changes[`ownership.-=${user.id}`] = null;
+      if (allowedUsers()[user.id] && journal.ownership?.[user.id] !== 2) changes[`ownership.${user.id}`] = 2;
+      if (!allowedUsers()[user.id] && journal.ownership?.[user.id] !== undefined) changes[`ownership.-=${user.id}`] = null;
     }
     if (Object.keys(changes).length) await journal.update(changes);
   }
 }
-
-/** Create the two storage journals, without creating default entries or templates. */
 async function ensureBooks() {
   if (!game.user.isGM) return;
-  for (const [id, info] of Object.entries(BOOKS)) {
+  for (const [id, data] of Object.entries(BOOKS)) {
     if (getBook(id)) continue;
-    await JournalEntry.create({
-      name: info.name,
-      ownership: ownershipFor(),
-      flags: { [MOD]: { book: id } }
-    });
+    await JournalEntry.create({ name: data.storage, ownership: ownershipFor(), flags: { [MOD]: { book: id } } });
   }
 }
-
-/**
- * One-way, non-destructive migration from v0.1 category journals.
- * Each source page is identified by UUID and imported only once. The old journals
- * remain as GM-accessible backups; categories are not shown in the new UI.
- */
+// Copy pages of original v0.1 category journals ONLY ONCE; never delete or overwrite originals.
 async function migrateOldCategories() {
   if (!game.user.isGM) return;
   const destination = getBook("bingo");
   if (!destination) return;
-  for (const old of game.journal.filter(j => j.getFlag(MOD, "category"))) {
+  for (const old of game.journal.filter(doc => doc.getFlag(MOD, "category"))) {
     for (const page of old.pages.contents) {
       const source = page.uuid || `${old.uuid}.JournalEntryPage.${page.id}`;
       if (destination.pages.contents.some(p => p.getFlag(MOD, "legacySource") === source)) continue;
@@ -92,370 +63,227 @@ async function migrateOldCategories() {
       delete data._id;
       delete data._stats;
       data.flags = foundry.utils.deepClone(data.flags || {});
-      data.flags[MOD] = { ...(data.flags[MOD] || {}), legacySource: source, templateId: "" };
+      data.flags[MOD] = { ...(data.flags[MOD] || {}), legacySource: source };
       await destination.createEmbeddedDocuments("JournalEntryPage", [data]);
     }
-    // Private backup: old category should no longer be visible to players.
-    const removals = {};
-    if (old.ownership?.default !== 0) removals["ownership.default"] = 0;
-    for (const user of game.users) {
-      if (!user.isGM && old.ownership?.[user.id] !== undefined) removals[`ownership.-=${user.id}`] = null;
-    }
-    if (Object.keys(removals).length) await old.update(removals);
+    const removeAccess = {};
+    if (old.ownership?.default !== 0) removeAccess["ownership.default"] = 0;
+    for (const user of game.users) if (!user.isGM && old.ownership?.[user.id] !== undefined) removeAccess[`ownership.-=${user.id}`] = null;
+    if (Object.keys(removeAccess).length) await old.update(removeAccess);
   }
 }
 
-const state = { book: "bingo", panel: null };
+// Backward-compatible fallback for users who assigned their uploaded art as a v0.2.0 template.
+// Never alter old template settings or journal flags. The chosen template is used only if
+// the entry lacks its own image. This preserves previously configured poster images.
+function posterImage(page, book) {
+  const direct = page.getFlag(MOD, "image") || (page.type === "image" ? page.src : "");
+  if (direct) return direct;
+  const selected = page.getFlag(MOD, "templateId");
+  const all = game.settings.get(MOD, "templates") || {};
+  return (Array.isArray(all[book]) ? all[book] : []).find(t => t.id === selected)?.image || "";
+}
+
+const state = { book: "bingo", showPlayers: false };
 let windowInstance = null;
 let renderSequence = 0;
-
-function renderApplication(app) {
+function renderApp(app) {
   if (!app) return;
-  if (USE_V2 && app instanceof foundry.applications.api.ApplicationV2) app.render({ force: true });
-  else app.render(true);
+  return (USE_V2 && app instanceof foundry.applications.api.ApplicationV2) ? app.render({ force: true }) : app.render(true);
 }
-
-async function confirmAction(title, message) {
-  if (USE_V2 && foundry.applications?.api?.DialogV2?.confirm) {
-    return foundry.applications.api.DialogV2.confirm({ window: { title }, content: `<p>${message}</p>`, rejectClose: false });
-  }
-  return Dialog.confirm({ title, content: `<p>${message}</p>` });
+async function confirmAction(title, content) {
+  if (USE_V2 && foundry.applications?.api?.DialogV2?.confirm)
+    return foundry.applications.api.DialogV2.confirm({ window: { title }, content: `<p>${content}</p>`, rejectClose: false });
+  return Dialog.confirm({ title, content: `<p>${content}</p>` });
 }
-
-function refreshSceneControls() {
-  try {
-    if (typeof ui.controls?.initialize === "function") ui.controls.initialize();
-    else ui.controls?.render({ reset: true });
-  } catch (error) { console.warn(`${MOD} | Scene controls could not refresh`, error); }
-}
-
 function refresh() {
   if (windowInstance?.rendered && windowInstance.rootEl?.isConnected) draw(windowInstance.rootEl);
 }
-const refreshSoon = foundry.utils.debounce(refresh, 60);
-
+const refreshSoon = foundry.utils.debounce(refresh, 70);
+function refreshControls() {
+  try {
+    if (typeof ui.controls?.initialize === "function") ui.controls.initialize();
+    else ui.controls?.render({ reset: true });
+  } catch (e) { console.warn(`${MOD} | Unable to refresh scene controls`, e); }
+}
+function picker(current, callback) {
+  try {
+    const browser = new (FP())({ type: "image", current: current || "", callback: async path => {
+      try { if (path) await callback(path); } catch (error) {
+        console.error(`${MOD} | Could not save selected image`, error);
+        ui.notifications.error("Bingo Book: image could not be saved.");
+      }
+    }});
+    Promise.resolve(browser.browse()).catch(error => {
+      console.error(`${MOD} | File picker error`, error);
+      ui.notifications.error("Bingo Book: could not open the image picker.");
+    });
+  } catch (error) {
+    console.error(`${MOD} | File picker error`, error);
+    ui.notifications.error("Bingo Book: could not open the image picker.");
+  }
+}
+function posterNameFromPath(path) {
+  let name = String(path).split("/").pop().split("?")[0];
+  try { name = decodeURIComponent(name); } catch (_error) { /* ignore invalid percent-encoding */ }
+  return (name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Wanted Poster").slice(0, 120);
+}
+async function addPoster(book, path) {
+  if (!game.user.isGM || !BOOKS[book] || !path) return;
+  let journal = getBook(book);
+  if (!journal) { await ensureBooks(); journal = getBook(book); }
+  if (!journal) throw new Error("Book storage was not created.");
+  return journal.createEmbeddedDocuments("JournalEntryPage", [{
+    name: posterNameFromPath(path), type: "text", text: { content: "", format: 1 },
+    flags: { [MOD]: { image: path, status: "active", uuid: "" } }
+  }]);
+}
 function linkedDocument(uuid) {
   if (!uuid) return null;
   try { return fromUuidSync(uuid) || null; } catch (_error) { return null; }
 }
-
-async function enrichedText(page) {
-  return textEditorClass().enrichHTML(page.text?.content || "", {
-    relativeTo: page,
-    secrets: page.isOwner,
-    ...(generation() <= 11 ? { async: true } : {})
-  });
+async function openLinked(uuid) {
+  const document = uuid ? await fromUuid(uuid) : null;
+  if (!document?.sheet) return;
+  if (!game.user.isGM && !document.testUserPermission?.(game.user, "LIMITED")) {
+    ui.notifications.warn("You don't have permission to open that document."); return;
+  }
+  renderApp(document.sheet);
 }
 
-function pickImage(current, callback) {
-  const picker = new (filePickerClass())({
-    type: "image",
-    current: current || "",
-    callback: path => Promise.resolve(callback(path)).catch(error => {
-      console.error(`${MOD} | Failed to select image`, error);
-      ui.notifications.error("The image could not be saved.");
-    })
-  });
-  picker.browse().catch(error => {
-    console.error(`${MOD} | File picker failed`, error);
-    ui.notifications.error("Could not open Foundry's file picker.");
-  });
-}
-
-function entryHTML(page, gm, book, templates) {
+function posterHTML(page, gm, book) {
+  const path = posterImage(page, book);
   const status = page.getFlag(MOD, "status") || "active";
-  const reward = page.getFlag(MOD, "reward") || "";
   const uuid = page.getFlag(MOD, "uuid") || "";
   const linked = linkedDocument(uuid);
-  const portrait = page.getFlag(MOD, "image") || (linked?.documentName === "Actor" ? linked.img : "") || "";
-  const templateId = page.getFlag(MOD, "templateId") || "";
-  const template = templates.find(t => t.id === templateId && t.image);
-  const fit = template?.fit === "contain" ? "contain" : "cover";
-  const placement = template?.placement === "top" ? "top" : "bottom";
-  const statusLabel = status === "active" ? (book === "bingo" ? "Wanted" : "Targeted") : (STATUSES[status] || status);
-  const selectStatus = Object.entries(STATUSES).map(([key, value]) =>
-    `<option value="${key}"${key === status ? " selected" : ""}>${key === "active" ? (book === "bingo" ? "Wanted" : "Targeted") : value}</option>`).join("");
-  const link = linked
-    ? `<div class="bb-link"><a data-act="open-link" title="Open linked sheet"><i class="fa-solid fa-link"></i> ${escapeHTML(linked.name)}</a>${gm ? `<button data-act="clear-link" type="button" title="Remove link"><i class="fa-solid fa-xmark"></i></button>` : ""}</div>`
-    : (gm ? `<div class="bb-link bb-muted">Drop an Actor or Item here to link it</div>` : "");
-  const imageBox = portrait
-    ? `<img class="bb-entry-portrait-img" src="${escapeHTML(pathToUrl(portrait))}" alt="Portrait of ${escapeHTML(page.name)}">`
-    : `<div class="bb-portrait-placeholder"><i class="fa-regular fa-image"></i><span>${gm ? "Choose portrait" : "No portrait"}</span></div>`;
-
-  return `<article class="bb-entry ${template ? "bb-has-template" : ""}" data-page="${escapeHTML(page.id)}">
-    <div class="bb-paper bb-place-${placement}">
-      ${template ? `<img class="bb-template-back bb-fit-${fit}" src="${escapeHTML(pathToUrl(template.image))}" alt="">` : ""}
-      <div class="bb-paper-content">
-        <div class="bb-entry-topline"><span>${book === "bingo" ? "BINGO BOOK" : "TARGET BOOK"}</span><span class="bb-status-badge bb-status-${escapeHTML(status)}">${escapeHTML(statusLabel)}</span></div>
-        <div class="bb-entry-portrait"${gm ? ` data-act="pick-portrait" title="Choose portrait" role="button" tabindex="0"` : ""}>${imageBox}</div>
-        ${gm ? `<input class="bb-entry-name" type="text" data-field="name" aria-label="Name" value="${escapeHTML(page.name)}">` : `<h3 class="bb-entry-name">${escapeHTML(page.name)}</h3>`}
-        ${(gm || reward) ? `<div class="bb-reward"><label>Reward / Notes</label>${gm ? `<input data-field="reward" type="text" value="${escapeHTML(reward)}" placeholder="Reward or short note">` : `<strong>${escapeHTML(reward)}</strong>`}</div>` : ""}
-        <div class="bb-entry-desc" data-desc="${escapeHTML(page.id)}"></div>
-        ${link}
+  const link = linked ? `<div class="bb-link"><a data-act="open-link" title="Open linked sheet"><i class="fa-solid fa-link"></i> ${escapeHTML(linked.name)}</a>${gm ? `<button type="button" data-act="clear-link" title="Remove link"><i class="fa-solid fa-xmark"></i></button>` : ""}</div>` : "";
+  const options = Object.entries(STATUSES).map(([k, label]) => `<option value="${k}"${status === k ? " selected" : ""}>${book === "target" && k === "active" ? "Targeted" : label}</option>`).join("");
+  return `<article class="bb-poster" data-page="${escapeHTML(page.id)}">
+    <div class="bb-paper">
+      <div class="bb-image"${gm ? ' data-act="replace-image" role="button" tabindex="0" title="Click to replace this poster image"' : ""}>
+        ${path ? `<img src="${escapeHTML(imageURL(path))}" alt="${escapeHTML(page.name)}" loading="lazy">` : `<div class="bb-image-empty"><i class="fa-regular fa-image"></i><span>${gm ? "Select poster image" : "Image unavailable"}</span></div>`}
       </div>
+      ${gm ? `<input class="bb-poster-title" data-field="name" type="text" value="${escapeHTML(page.name)}" aria-label="Poster name">` : `<div class="bb-poster-title">${escapeHTML(page.name)}</div>`}
+      ${link}
+      ${gm && !linked ? `<div class="bb-link bb-hint">Drop an Actor or Item here to link it</div>` : ""}
     </div>
-    ${gm ? `<footer class="bb-entry-footer">
-      <label class="bb-control-field">Status <select data-field="status" aria-label="Status">${selectStatus}</select></label>
-      <label class="bb-control-field bb-template-field">Template <select data-field="templateId" aria-label="Template"><option value="">None</option>${templates.map(t => `<option value="${escapeHTML(t.id)}"${t.id === templateId ? " selected" : ""}>${escapeHTML(t.name)}</option>`).join("")}</select></label>
-      <button type="button" data-act="edit-desc" class="bb-icon-btn" title="Edit description in Foundry Journal"><i class="fa-solid fa-pen-to-square"></i></button>
-      <button type="button" data-act="delete-entry" class="bb-icon-btn bb-danger" title="Delete entry"><i class="fa-solid fa-trash"></i></button>
-    </footer>` : ""}
+    ${gm ? `<div class="bb-gm">
+      <select data-field="status" aria-label="Poster status" title="Poster status">${options}</select>
+      <button type="button" data-act="replace-image" title="Replace poster image"><i class="fa-solid fa-image"></i></button>
+      <button type="button" data-act="remove-poster" title="Delete poster"><i class="fa-solid fa-trash"></i></button>
+    </div>` : status !== "active" ? `<div class="bb-status">${escapeHTML(STATUSES[status] || status)}</div>` : ""}
   </article>`;
 }
-
-function templateManagerHTML(templates, book) {
-  return `<section class="bb-manager">
-    <div class="bb-manager-heading"><div><h3>${escapeHTML(BOOKS[book].title)} — My Templates</h3>
-      <p>Upload your own image templates. The module does not ship with any preset posters.</p></div>
-      <button type="button" class="bb-primary" data-act="add-template"><i class="fa-solid fa-plus"></i> Add template</button></div>
-    <div class="bb-template-list">${templates.length ? templates.map(t => `<div class="bb-template-row" data-template="${escapeHTML(t.id)}">
-      <div class="bb-template-preview">${t.image ? `<img src="${escapeHTML(pathToUrl(t.image))}" alt="${escapeHTML(t.name)}">` : `<i class="fa-regular fa-image"></i>`}</div>
-      <div class="bb-template-options"><label>Name<input type="text" data-template-field="name" value="${escapeHTML(t.name)}"></label>
-        <label>Image sizing<select data-template-field="fit"><option value="cover"${t.fit !== "contain" ? " selected" : ""}>Fill (crop)</option><option value="contain"${t.fit === "contain" ? " selected" : ""}>Fit whole image</option></select></label>
-        <label>Text area<select data-template-field="placement"><option value="bottom"${t.placement !== "top" ? " selected" : ""}>Bottom</option><option value="top"${t.placement === "top" ? " selected" : ""}>Top</option></select></label></div>
-      <div class="bb-template-buttons"><button type="button" data-act="change-template-image" title="Change template image"><i class="fa-solid fa-image"></i> Image</button><button type="button" data-act="remove-template" class="bb-danger" title="Remove template"><i class="fa-solid fa-trash"></i></button></div>
-    </div>`).join("") : `<div class="bb-panel-empty"><i class="fa-regular fa-image"></i><p>No templates added yet.</p><span>Click Add template and select an image from Foundry's file picker.</span></div>`}</div>
-  </section>`;
-}
-
 function playerManagerHTML() {
   const access = allowedUsers();
-  const users = game.users.filter(user => !user.isGM);
-  return `<section class="bb-manager bb-player-manager"><h3>Player Access</h3>
-    <p>Choose who can open Bingo Book and Target Book. Only the GM can create or edit entries and templates.</p>
-    <div class="bb-player-list">${users.length ? users.map(user => `<label class="bb-player"><input type="checkbox" data-user="${escapeHTML(user.id)}"${access[user.id] ? " checked" : ""}><span>${escapeHTML(user.name)}</span></label>`).join("") : `<p>No players in this world.</p>`}</div>
-  </section>`;
+  const users = game.users.filter(u => !u.isGM);
+  return `<div class="bb-players"><h3>Who can see the books?</h3><p>Select players who may view both Bingo Book and Target Book.</p>
+    <ul>${users.length ? users.map(u => `<li><label><input type="checkbox" data-user="${escapeHTML(u.id)}"${access[u.id] ? " checked" : ""}> ${escapeHTML(u.name)}</label></li>`).join("") : "<li>No players in this world yet.</li>"}</ul>
+    <button type="button" data-act="toggle-players">Done</button></div>`;
 }
-
 async function draw(root) {
   if (!root?.isConnected) return;
-  const sequence = ++renderSequence;
-  const book = selectedBook();
+  ++renderSequence;
+  const book = BOOKS[state.book] ? state.book : "bingo";
   const gm = game.user.isGM;
-  const templates = bookTemplates(book);
-  const entries = getEntries(book);
-  const panel = gm ? state.panel : null;
-  const bookInfo = BOOKS[book];
-  const content = panel === "templates" ? templateManagerHTML(templates, book)
-    : panel === "players" ? playerManagerHTML()
-    : entries.length ? `<div class="bb-grid">${entries.map(page => entryHTML(page, gm, book, templates)).join("")}</div>`
-    : `<div class="bb-empty"><i class="${bookInfo.icon}"></i><h3>${escapeHTML(bookInfo.title)} is empty</h3><p>${gm ? "Click Add Entry to create your first entry. You can optionally upload your own image templates." : "No entries have been added yet."}</p></div>`;
-
-  root.innerHTML = `<div class="bb-shell">
-    <nav class="bb-top-tabs" aria-label="Books">
-      ${Object.entries(BOOKS).map(([id, bookData]) => `<button type="button" data-act="switch-book" data-book="${id}" class="bb-tab ${book === id ? "active" : ""}" aria-selected="${book === id}"><i class="${bookData.icon}"></i><span>${bookData.title}</span></button>`).join("")}
+  const pages = getEntries(book);
+  const showPlayers = gm && state.showPlayers;
+  root.innerHTML = `<div class="bb-layout">
+    <nav class="bb-top-tabs" aria-label="Book selection">
+      ${Object.entries(BOOKS).map(([id, info]) => `<button type="button" data-act="switch-book" data-book="${id}" class="bb-tab${id === book ? " active" : ""}" aria-selected="${id === book}"><i class="${info.icon}"></i> ${info.label}</button>`).join("")}
     </nav>
-    <header class="bb-toolbar"><div class="bb-title"><h2>${panel === "players" ? "Player Access" : escapeHTML(bookInfo.title)}</h2><span>${panel ? (panel === "templates" ? "Custom template library" : "Both books") : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`}</span></div>
-      ${gm ? `<div class="bb-actions"><button type="button" data-act="show-templates" class="${panel === "templates" ? "bb-selected" : ""}"><i class="fa-solid fa-layer-group"></i> Templates</button>
-      <button type="button" data-act="show-players" class="${panel === "players" ? "bb-selected" : ""}"><i class="fa-solid fa-users"></i> Players</button>
-      <button type="button" data-act="add-entry" class="bb-primary"><i class="fa-solid fa-plus"></i> Add Entry</button></div>` : ""}
-    </header>
-    <main class="bb-main">${content}</main>
+    <section class="bb-main">
+      <header class="bb-head"><h2>${showPlayers ? "Player Access" : BOOKS[book].label}</h2>
+        ${gm ? `<div class="bb-head-actions"><button type="button" data-act="toggle-players"><i class="fa-solid fa-users"></i> ${showPlayers ? "Back to Book" : "Players"}</button>${!showPlayers ? '<button type="button" data-act="add-poster"><i class="fa-solid fa-plus"></i> Add Poster Image</button>' : ""}</div>` : ""}
+      </header>
+      ${showPlayers ? playerManagerHTML() : `<div class="bb-grid">${pages.length ? pages.map(page => posterHTML(page, gm, book)).join("") : `<p class="bb-empty-state">${gm ? "No posters yet. Click Add Poster Image to import a complete wanted poster." : "No posters available yet."}</p>`}</div>`}
+    </section>
   </div>`;
-
-  if (panel) return;
-  await Promise.all(entries.map(async page => {
-    const target = Array.from(root.querySelectorAll("[data-desc]")).find(el => el.dataset.desc === page.id);
-    if (!target) return;
-    try {
-      const html = await enrichedText(page);
-      if (renderSequence !== sequence || !target.isConnected) return;
-      target.innerHTML = html || (gm ? `<p class="bb-description-hint">Use the edit button to add text, links, and images.</p>` : "");
-    } catch (error) { console.warn(`${MOD} | Description could not be rendered`, page.name, error); }
-  }));
-}
-
-async function modifyTemplates(book, transform) {
-  if (!game.user.isGM) return;
-  const values = foundry.utils.deepClone(allTemplates());
-  const current = Array.isArray(values[book]) ? values[book] : [];
-  values[book] = transform(current);
-  await game.settings.set(MOD, "templates", values);
-  refresh();
-}
-
-async function openLinked(uuid) {
-  if (!uuid) return;
-  const doc = await fromUuid(uuid);
-  if (!doc?.sheet) return;
-  if (!game.user.isGM && !doc.testUserPermission?.(game.user, "LIMITED")) {
-    ui.notifications.warn("You do not have permission to view this document.");
-    return;
-  }
-  renderApplication(doc.sheet);
 }
 
 function mount(root, app) {
   if (!root) return;
   app.rootEl = root;
-  // Prevent duplicate event handlers if ApplicationV2 decides to re-render its template.
   if (root.dataset.bbMounted === "yes") { draw(root); return; }
   root.dataset.bbMounted = "yes";
-
-  const entryFor = el => {
-    const pageId = el.closest("[data-page]")?.dataset.page;
-    return pageId ? getBook(selectedBook())?.pages.get(pageId) : null;
+  const pageFor = element => {
+    const id = element.closest("[data-page]")?.dataset.page;
+    return id ? getBook(state.book)?.pages.get(id) : null;
   };
-
   root.addEventListener("click", async event => {
-    const documentLink = event.target.closest("a.content-link[data-uuid]");
-    if (documentLink) {
-      event.preventDefault();
-      event.stopPropagation();
-      await openLinked(documentLink.dataset.uuid);
-      return;
+    const link = event.target.closest("a.content-link[data-uuid]");
+    if (link) { event.preventDefault(); await openLinked(link.dataset.uuid); return; }
+    const button = event.target.closest("[data-act]");
+    if (!button) return;
+    const act = button.dataset.act;
+    if (act === "switch-book") {
+      if (!BOOKS[button.dataset.book]) return;
+      state.book = button.dataset.book;
+      state.showPlayers = false;
+      refresh(); return;
     }
-    const actionElement = event.target.closest("[data-act]");
-    if (!actionElement) return;
-    const action = actionElement.dataset.act;
-    const gm = game.user.isGM;
-
-    if (action === "switch-book") {
-      state.book = actionElement.dataset.book;
-      state.panel = null;
-      refresh();
-      return;
-    }
-    if (!gm) {
-      if (action === "open-link") await openLinked(entryFor(actionElement)?.getFlag(MOD, "uuid"));
-      return;
-    }
-
+    if (act === "open-link") { await openLinked(pageFor(button)?.getFlag(MOD, "uuid")); return; }
+    if (!game.user.isGM) return;
     try {
-      switch (action) {
-        case "show-templates":
-          state.panel = state.panel === "templates" ? null : "templates";
-          refresh();
-          break;
-        case "show-players":
-          state.panel = state.panel === "players" ? null : "players";
-          refresh();
-          break;
-        case "add-entry": {
-          const journal = getBook(selectedBook());
-          if (!journal) {
-            ui.notifications.warn("Book storage is still initializing. Please reopen the window.");
-            await ensureBooks();
-            refresh();
-            break;
-          }
-          state.panel = null;
-          await journal.createEmbeddedDocuments("JournalEntryPage", [{
-            name: "New Entry", type: "text", text: { content: "", format: 1 },
-            flags: { [MOD]: { image: "", reward: "", status: "active", uuid: "", templateId: "" } }
-          }]);
-          refresh();
+      switch (act) {
+        case "toggle-players": state.showPlayers = !state.showPlayers; refresh(); break;
+        case "add-poster": {
+          const book = state.book;
+          picker("", async path => addPoster(book, path));
           break;
         }
-        case "pick-portrait": {
-          const page = entryFor(actionElement);
-          if (page) pickImage(page.getFlag(MOD, "image"), path => page.setFlag(MOD, "image", path));
+        case "replace-image": {
+          const page = pageFor(button);
+          if (page) picker(posterImage(page, state.book), path => page.setFlag(MOD, "image", path));
           break;
         }
-        case "edit-desc": renderApplication(entryFor(actionElement)?.sheet); break;
-        case "delete-entry": {
-          const page = entryFor(actionElement);
-          if (page && await confirmAction("Delete Entry", `Permanently delete <strong>${escapeHTML(page.name)}</strong>?`)) await page.delete();
+        case "remove-poster": {
+          const page = pageFor(button);
+          if (page && await confirmAction("Delete Poster", `Delete <strong>${escapeHTML(page.name)}</strong>?`)) await page.delete();
           break;
         }
-        case "open-link": await openLinked(entryFor(actionElement)?.getFlag(MOD, "uuid")); break;
-        case "clear-link": await entryFor(actionElement)?.unsetFlag(MOD, "uuid"); break;
-        case "add-template": {
-          const book = selectedBook();
-          pickImage("", async path => {
-            let filename = path.split("/").pop().split("?")[0] || "My Template";
-            try { filename = decodeURIComponent(filename); } catch (_error) { /* Keep original filename. */ }
-            const name = filename.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
-            await modifyTemplates(book, templates => [...templates, {
-              id: foundry.utils.randomID(), name: name || "My Template", image: path, fit: "cover", placement: "bottom"
-            }]);
-          });
-          break;
-        }
-        case "change-template-image": {
-          const id = actionElement.closest("[data-template]")?.dataset.template;
-          const book = selectedBook();
-          const current = bookTemplates(book).find(t => t.id === id);
-          if (current) pickImage(current.image, path => modifyTemplates(book, templates => templates.map(t => t.id === id ? { ...t, image: path } : t)));
-          break;
-        }
-        case "remove-template": {
-          const id = actionElement.closest("[data-template]")?.dataset.template;
-          const book = selectedBook();
-          const current = bookTemplates(book).find(t => t.id === id);
-          if (current && await confirmAction("Remove Template", `Remove template <strong>${escapeHTML(current.name)}</strong>? Entries using it will stay intact but lose their background.`)) {
-            await modifyTemplates(book, templates => templates.filter(t => t.id !== id));
-          }
-          break;
-        }
+        case "clear-link": await pageFor(button)?.unsetFlag(MOD, "uuid"); break;
       }
     } catch (error) {
-      console.error(`${MOD} | Could not perform ${action}`, error);
-      ui.notifications.error(`Bingo Book: ${error.message || "Action failed"}`);
+      console.error(`${MOD} | Action failed`, act, error);
+      ui.notifications.error("Bingo Book: action failed. Check the console.");
     }
   });
-
-  root.addEventListener("keydown", event => {
-    if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-act='pick-portrait']")) {
-      event.preventDefault(); event.target.click();
+  root.addEventListener("keydown", ev => {
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches("[data-act='replace-image']")) {
+      ev.preventDefault(); ev.target.click();
     }
   });
-
   root.addEventListener("change", async event => {
     if (!game.user.isGM) return;
     const target = event.target;
     try {
       if (target.matches("[data-user]")) {
         await game.settings.set(MOD, "allowedUsers", { ...allowedUsers(), [target.dataset.user]: target.checked });
-        await syncOwnership();
-        return;
-      }
-      if (target.matches("[data-template-field]")) {
-        const id = target.closest("[data-template]")?.dataset.template;
-        const field = target.dataset.templateField;
-        if (!id || !["name", "fit", "placement"].includes(field)) return;
-        const value = field === "name" ? (target.value.trim() || "My Template") : target.value;
-        const book = selectedBook();
-        await modifyTemplates(book, templates => templates.map(t => t.id === id ? { ...t, [field]: value } : t));
-        return;
+        await syncOwnership(); return;
       }
       if (!target.matches("[data-field]")) return;
-      const page = entryFor(target);
+      const page = pageFor(target);
       if (!page) return;
-      const value = target.value;
-      switch (target.dataset.field) {
-        case "name": await page.update({ name: value.trim() || "New Entry" }); break;
-        case "reward": await page.setFlag(MOD, "reward", value); break;
-        case "status": if (Object.hasOwn(STATUSES, value)) await page.setFlag(MOD, "status", value); break;
-        case "templateId": {
-          if (!value || bookTemplates(selectedBook()).some(t => t.id === value)) await page.setFlag(MOD, "templateId", value);
-          break;
-        }
-      }
+      if (target.dataset.field === "name") await page.update({ name: target.value.trim() || "Wanted Poster" });
+      if (target.dataset.field === "status" && Object.prototype.hasOwnProperty.call(STATUSES, target.value)) await page.setFlag(MOD, "status", target.value);
     } catch (error) {
-      console.error(`${MOD} | Field could not be saved`, error);
-      ui.notifications.error("Could not save the change.");
+      console.error(`${MOD} | Could not save change`, error);
+      ui.notifications.error("Bingo Book: could not save this change.");
     }
   });
-
   root.addEventListener("dragover", event => {
-    if (game.user.isGM && event.target.closest(".bb-entry")) event.preventDefault();
+    if (game.user.isGM && event.target.closest(".bb-poster")) event.preventDefault();
   });
   root.addEventListener("drop", async event => {
-    if (!game.user.isGM || !event.target.closest(".bb-entry")) return;
+    if (!game.user.isGM || !event.target.closest(".bb-poster")) return;
     event.preventDefault();
-    let data;
-    try { data = JSON.parse(event.dataTransfer?.getData("text/plain") || "null"); } catch (_error) { return; }
-    if (!["Actor", "Item"].includes(data?.type)) {
-      ui.notifications.warn("Drop an Actor or Item to link it to the entry.");
-      return;
-    }
-    const uuid = data.uuid || (data.id ? `${data.type}.${data.id}` : "");
-    if (!uuid) return;
-    const page = entryFor(event.target);
-    if (page) await page.setFlag(MOD, "uuid", uuid);
+    let drag;
+    try { drag = JSON.parse(event.dataTransfer?.getData("text/plain") || "null"); } catch (_error) { return; }
+    if (!["Actor", "Item"].includes(drag?.type)) return;
+    const uuid = drag.uuid || (drag.id ? `${drag.type}.${drag.id}` : "");
+    if (uuid) await pageFor(event.target)?.setFlag(MOD, "uuid", uuid);
   });
-
   draw(root);
 }
 
@@ -464,21 +292,18 @@ if (USE_V2) {
   const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
   BookWindow = class BookWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     static DEFAULT_OPTIONS = {
-      id: MOD, classes: ["bingo-book"], position: { width: 1060, height: 730 },
-      window: { title: "Bingo Book / Target Book", icon: "fa-solid fa-book-open", resizable: true }
+      id: MOD, classes: ["bingo-book"], position: { width: 980, height: 680 },
+      window: { title: "Bingo Book / Target Book", icon: "fa-solid fa-book", resizable: true }
     };
     static PARTS = { main: { template: `modules/${MOD}/templates/book.hbs` } };
-    _onRender(context, options) {
-      super._onRender?.(context, options);
-      mount(this.element.querySelector(".bb-root"), this);
-    }
+    _onRender(context, options) { super._onRender?.(context, options); mount(this.element.querySelector(".bb-root"), this); }
   };
 } else {
   BookWindow = class BookWindow extends Application {
     static get defaultOptions() {
       return foundry.utils.mergeObject(super.defaultOptions, {
         id: MOD, classes: ["bingo-book"], template: `modules/${MOD}/templates/book.hbs`,
-        title: "Bingo Book / Target Book", width: 1060, height: 730, resizable: true
+        title: "Bingo Book / Target Book", width: 980, height: 680, resizable: true
       });
     }
     activateListeners(html) {
@@ -488,76 +313,44 @@ if (USE_V2) {
     }
   };
 }
-
 function openBook(book = null) {
-  if (!canSee()) {
-    ui.notifications.warn("You have not been granted access to the books.");
-    return;
-  }
+  if (!canSee()) { ui.notifications.warn("You don't have access to these books."); return; }
   if (book && BOOKS[book]) state.book = book;
-  state.panel = null;
+  state.showPlayers = false;
   if (windowInstance?.rendered) {
     refresh();
-    if (USE_V2) windowInstance.bringToFront();
-    else windowInstance.bringToTop();
+    if (USE_V2) windowInstance.bringToFront(); else windowInstance.bringToTop();
     return;
   }
-  windowInstance = new BookWindow();
-  renderApplication(windowInstance);
+  windowInstance = new BookWindow(); renderApp(windowInstance);
 }
-
 Hooks.once("init", () => {
   game.settings.register(MOD, "allowedUsers", {
-    name: "Allowed Players", scope: "world", config: false, type: Object, default: {},
+    scope: "world", config: false, type: Object, default: {},
     onChange: () => {
-      refreshSceneControls();
-      if (!canSee() && windowInstance?.rendered) windowInstance.close();
-      else refresh();
+      refreshControls();
+      if (!canSee() && windowInstance?.rendered) windowInstance.close(); else refresh();
     }
   });
+  // Preserve older v0.2.0 template settings so existing image paths remain readable.
   game.settings.register(MOD, "templates", {
-    name: "Custom Image Templates", scope: "world", config: false, type: Object,
-    default: { bingo: [], target: [] }, onChange: refresh
+    scope: "world", config: false, type: Object, default: { bingo: [], target: [] }, onChange: refresh
   });
 });
-
 Hooks.once("ready", async () => {
   game.modules.get(MOD).api = { open: openBook, openBingo: () => openBook("bingo"), openTarget: () => openBook("target") };
-  if (game.user.isGM) {
-    try {
-      await ensureBooks();
-      await migrateOldCategories();
-      await syncOwnership();
-    } catch (error) {
-      console.error(`${MOD} | Initialization/migration failed`, error);
-      ui.notifications.error("Bingo Book: check the browser console for a storage initialization error.");
-    }
-  }
+  if (game.user.isGM) try { await ensureBooks(); await migrateOldCategories(); await syncOwnership(); }
+  catch (error) { console.error(`${MOD} | Initialization failed`, error); ui.notifications.error("Bingo Book: cannot initialize books. Check browser console."); }
   refreshSoon();
 });
-
 Hooks.on("getSceneControlButtons", controls => {
-  const tool = {
-    name: MOD, title: "Bingo Book / Target Book", icon: "fa-solid fa-book-open",
-    button: true, visible: canSee(), onClick: () => openBook(), onChange: () => openBook()
-  };
-  if (Array.isArray(controls)) {
-    controls.find(group => group.name === "token")?.tools.push(tool);
-  } else {
-    const group = controls.tokens || controls.token;
-    if (group) {
-      tool.order = Object.keys(group.tools).length;
-      group.tools[MOD] = tool;
-    }
-  }
+  const tool = { name: MOD, title: "Bingo Book / Target Book", icon: "fa-solid fa-book", button: true,
+    visible: canSee(), onClick: () => openBook(), onChange: () => openBook() };
+  if (Array.isArray(controls)) controls.find(c => c.name === "token")?.tools.push(tool);
+  else { const group = controls.tokens || controls.token; if (group) { tool.order = Object.keys(group.tools).length; group.tools[MOD] = tool; } }
 });
-
-for (const hook of [
-  "createJournalEntry", "updateJournalEntry", "deleteJournalEntry",
-  "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage"
-]) Hooks.on(hook, () => { if (windowInstance?.rendered) refreshSoon(); });
-
-// The storage journals are not meant to clutter the player Journal directory.
+for (const hook of ["createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage"])
+  Hooks.on(hook, () => { if (windowInstance?.rendered) refreshSoon(); });
 Hooks.on("renderJournalDirectory", (app, html) => {
   if (game.user.isGM) return;
   const root = html instanceof HTMLElement ? html : html?.[0];

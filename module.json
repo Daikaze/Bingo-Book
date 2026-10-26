@@ -1,8 +1,8 @@
 {
   "id": "bingo-book",
   "title": "Bingo Book & Target Book",
-  "description": "Two GM-managed books with top tabs, custom image templates, rich-text journal entries, linked actors and items, and player access. Designed for Foundry VTT v11.",
-  "version": "0.2.0",
+  "description": "Import complete wanted poster images to Bingo Book or Target Book, with the original parchment interface, GM controls and player access. Foundry VTT v11.",
+  "version": "0.2.1",
   "compatibility": {
     "minimum": "11",
     "verified": "11"
@@ -27,5 +27,5 @@
   ],
   "url": "https://github.com/Daikaze/Bingo-Book",
   "manifest": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/module.json",
-  "download": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/dist/bingo-book-v11-v0.2.0.zip"
+  "download": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/dist/bingo-book-v11-v0.2.1.zip"
 }
