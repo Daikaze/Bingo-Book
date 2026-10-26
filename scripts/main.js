@@ -20,8 +20,7 @@ const S = {
   showPlayers: false,
   chatOpen: false,
   chatAudience: 'everyone',
-  chatRecipients: [],
-  zoomedPoster: null
+  chatRecipients: []
 };
 let win = null;
 let renderNonce = 0;
@@ -155,52 +154,6 @@ function previewHTML(page) {
       </div>
       ${notes ? `<div class="bb-preview-notes">${esc(notes)}</div>` : ''}
     </div>`;
-}
-
-function playerGalleryHTML(posters) {
-  if (!posters.length) return `<main class="bb-player-main">${emptyState(false)}</main>`;
-  return `<main class="bb-player-main">
-    <div class="bb-player-grid">
-      ${posters.map(page => {
-        const image = posterThumb(page);
-        const rank = rankFor(page.getFlag(MOD, 'rank'));
-        const raw = page.getFlag(MOD, 'status') ?? 'None';
-        const status = ({ active: 'Wanted', claimed: 'Captured', lost: 'Missing', dropped: 'Cleared' })[raw] || raw;
-        return `<button type="button" class="bb-player-card" data-act="open-player-poster" data-page="${esc(page.id)}" title="View ${esc(page.name)}">
-          <span class="bb-player-art">
-            <img src="${esc(imgSrc(image))}" alt="${esc(page.name)}" loading="lazy">
-            <span class="bb-player-rank">${esc(rank)}</span>
-          </span>
-          <span class="bb-player-name">${esc(page.name)}</span>
-          ${status !== 'None' ? `<span class="bb-player-status">${esc(status)}</span>` : ''}
-        </button>`;
-      }).join('')}
-    </div>
-  </main>`;
-}
-
-function playerDetailHTML(page) {
-  if (!page) return '';
-  const image = posterThumb(page);
-  const rank = rankFor(page.getFlag(MOD, 'rank'));
-  const raw = page.getFlag(MOD, 'status') ?? 'None';
-  const status = ({ active: 'Wanted', claimed: 'Captured', lost: 'Missing', dropped: 'Cleared' })[raw] || raw;
-  const background = page.getFlag(MOD, 'background') ?? 'parchment';
-  const bg = Object.prototype.hasOwnProperty.call(BACKGROUNDS, background) ? background : 'parchment';
-  return `<div class="bb-player-backdrop" data-act="close-player-backdrop">
-    <div class="bb-player-detail" role="dialog" aria-modal="true" aria-label="${esc(page.name)}">
-      <div class="bb-player-detail-head"><strong>${esc(page.name)}</strong>
-        <button type="button" data-act="close-player-poster" aria-label="Close poster" title="Close poster"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="bb-poster-card bg-${bg}">
-        <div class="bb-poster-inner">
-          <img class="bb-poster-image" src="${esc(imgSrc(image))}" alt="${esc(page.name)}">
-          <div class="bb-rank-badge rank-${rank}">Rank ${rank}</div>
-          ${status !== 'None' ? `<div class="bb-stamp stamp-${esc(status.toLowerCase())}">${esc(status)}</div>` : ''}
-        </div>
-      </div>
-    </div>
-  </div>`;
 }
 
 function accessHTML() {
@@ -420,22 +373,6 @@ async function draw(root) {
   if (!posters.some(p => p.id === S.selected)) S.selected = posters[0]?.id ?? null;
   const page = getSelectedPage();
 
-  // A dedicated, compact read-only interface for non-GM users.
-  if (!gm) {
-    const previousScroll = root.querySelector('.bb-player-main')?.scrollTop ?? 0;
-    const enlarged = posters.find(p => p.id === S.zoomedPoster) || null;
-    root.innerHTML = `<div class="bb-shell bb-player-shell">
-      <header class="bb-topbar"><nav class="bb-tabs" aria-label="Books">
-        ${Object.entries(BOOKS).filter(([key]) => books.includes(key)).map(([key, name]) => `<button type="button" class="bb-tab${S.book === key ? ' active' : ''}" data-act="switch-book" data-book="${key}">${esc(name)}</button>`).join('')}
-      </nav></header>
-      ${playerGalleryHTML(posters)}
-      ${enlarged ? playerDetailHTML(enlarged) : ''}
-    </div>`;
-    const gallery = root.querySelector('.bb-player-main');
-    if (gallery) gallery.scrollTop = previousScroll;
-    return;
-  }
-
   // Snapshot right before replacing the markup (after any asynchronous book setup).
   const savedView = captureView(root);
   root.innerHTML = `
@@ -493,9 +430,7 @@ function mount(root, app) {
     const gm = game.user.isGM;
 
     if (act === 'switch-book') {
-      if (!canSeeBook(el.dataset.book)) return;
-      S.book = el.dataset.book;
-      S.zoomedPoster = null;
+      S.book = el.dataset.book || 'bingo';
       S.selected = null;
       S.showPlayers = false;
       S.chatOpen = false;
@@ -508,17 +443,7 @@ function mount(root, app) {
       refresh();
       return;
     }
-    if (!gm) {
-      if (act === 'open-player-poster') {
-        if (!getPosters(S.book).some(page => page.id === el.dataset.page)) return;
-        S.zoomedPoster = el.dataset.page;
-        refresh();
-      } else if (act === 'close-player-poster' || (act === 'close-player-backdrop' && ev.target === el)) {
-        S.zoomedPoster = null;
-        refresh();
-      }
-      return;
-    }
+    if (!gm) return;
 
     switch (act) {
       case 'toggle-chat': S.chatOpen = !S.chatOpen; refresh(); break;
@@ -566,14 +491,6 @@ function mount(root, app) {
         await page.setFlag(MOD, 'image', actor.img);
         break;
       }
-    }
-  });
-
-  root.addEventListener('keydown', ev => {
-    if (ev.key === 'Escape' && !game.user.isGM && S.zoomedPoster) {
-      S.zoomedPoster = null;
-      ev.preventDefault();
-      refresh();
     }
   });
 
@@ -650,8 +567,8 @@ class BingoBookApp extends Application {
       classes: ['bingo-book'],
       template: `modules/${MOD}/templates/book.hbs`,
       title: 'Bingo Book',
-      width: game.user.isGM ? 1080 : 680,
-      height: game.user.isGM ? 760 : 560,
+      width: 1080,
+      height: 760,
       resizable: true
     });
   }
