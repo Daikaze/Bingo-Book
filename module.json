@@ -1,8 +1,8 @@
 {
   "id": "bingo-book",
   "title": "Bingo Book & Target Book",
-  "description": "Foundry VTT v11 Bingo Book and Target Book with independent player permissions, targeted chat sharing, S-D ranks, status stamps, and parchment UI.",
-  "version": "0.3.2",
+  "description": "Foundry VTT v11 Bingo Book and Target Book with separate GM editor, compact player gallery, independent permissions, targeted chat sharing and S-D ranks.",
+  "version": "0.3.3",
   "compatibility": {
     "minimum": "11",
     "verified": "11"
@@ -30,5 +30,5 @@
   ],
   "url": "https://github.com/Daikaze/Bingo-Book",
   "manifest": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/module.json",
-  "download": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/dist/bingo-book-v11-v0.3.2.zip"
+  "download": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/dist/bingo-book-v11-v0.3.3.zip"
 }

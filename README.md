@@ -1,4 +1,4 @@
-# Bingo Book & Target Book v0.3.2 — Foundry VTT v11
+# Bingo Book & Target Book v0.3.3 — Foundry VTT v11
 
 A gallery for **ready-made wanted poster images**, with two independently permissioned books. No poster-template generator is needed. The editor retains the light classic Foundry v11 paper layout.
 
@@ -17,8 +17,13 @@ A gallery for **ready-made wanted poster images**, with two independently permis
 
 Manifest URL: `https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/module.json`
 
-ZIP: [`dist/bingo-book-v11-v0.3.2.zip`](dist/bingo-book-v11-v0.3.2.zip)
+ZIP: [`dist/bingo-book-v11-v0.3.3.zip`](dist/bingo-book-v11-v0.3.3.zip)
 
 Always **back up your world** before upgrading. The module reuses existing v0.2/v0.3 Bingo & Target Journal pages, including their images and status metadata. It does not delete the source pictures. The original shared permission list is retained for migration. After updating, open **Players** to adjust separate book access.
 
 Automated test checks cover permission migration, journal access synchronization, rank compatibility and public/private chat message routing. **Not verified in a live Foundry v11 client.**
+
+
+## Player interface (v0.3.3)
+
+Players see a compact, read-only gallery of small poster thumbnails rather than the GM's editing form. Each card shows the entire uploaded poster image, its name, rank (S-D) and status. Click a card to expand it; close with the X, backdrop click or Escape. The window starts smaller for players (680 x 560) while the GM retains the full 1080 x 760 editor. Both books remain separately permission controlled.
