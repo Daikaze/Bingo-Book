@@ -5,6 +5,8 @@ const BOOKS = {
 };
 const STATUSES = ['None', 'Wanted', 'Dead', 'Captured', 'Missing', 'Cleared'];
 const RANKS = ['S', 'A', 'B', 'C', 'D'];
+const LEGACY_RANKS = { '5': 'S', '4': 'A', '3': 'B', '2': 'C', '1': 'D' };
+const rankFor = value => RANKS.includes(String(value)) ? String(value) : (LEGACY_RANKS[String(value)] || 'D');
 const BACKGROUNDS = {
   parchment: 'Parchment',
   page: 'Book Page',
@@ -15,7 +17,10 @@ const BACKGROUNDS = {
 const S = {
   book: 'bingo',
   selected: null,
-  showPlayers: false
+  showPlayers: false,
+  chatOpen: false,
+  chatAudience: 'everyone',
+  chatRecipients: []
 };
 let win = null;
 let renderNonce = 0;
@@ -32,14 +37,41 @@ async function confirmDialog(title, content) {
   return Dialog.confirm({ title, content: `<p>${content}</p>` });
 }
 
-function allowedUsers() { return game.settings.get(MOD, 'allowedUsers') || {}; }
-function canSee(user = game.user) { return user.isGM || !!allowedUsers()[user.id]; }
+// Store browsing access per book, separate from one-time Chat whispers.
+function permissions() { return game.settings.get(MOD, 'bookPermissions') || {}; }
+function canSeeBook(book, user = game.user) {
+  return !!BOOKS[book] && (user.isGM || !!permissions()[book]?.[user.id]);
+}
+function availableBooks(user = game.user) {
+  return Object.keys(BOOKS).filter(book => canSeeBook(book, user));
+}
+function canSee(user = game.user) { return availableBooks(user).length > 0; }
 
-function allPlayersOwnership() {
+function ownershipFor(book) {
   const ownership = { default: 0 };
-  for (const u of game.users) if (!u.isGM && allowedUsers()[u.id]) ownership[u.id] = 2;
+  for (const u of game.users) if (!u.isGM && permissions()[book]?.[u.id]) ownership[u.id] = 2;
   return ownership;
 }
+
+// v0.3.0 had one shared allowlist. Copy it ONCE into both books to preserve
+// existing access, then let each book be configured independently.
+async function migratePermissions() {
+  if (!game.user.isGM || game.settings.get(MOD, 'permissionsMigrated')) return;
+  const legacy = game.settings.get(MOD, 'allowedUsers') || {};
+  const saved = permissions();
+  const next = {};
+  for (const book of Object.keys(BOOKS)) next[book] = { ...legacy, ...(saved[book] || {}) };
+  await game.settings.set(MOD, 'bookPermissions', next);
+  await game.settings.set(MOD, 'permissionsMigrated', true);
+}
+
+function updateControls() {
+  try {
+    if (typeof ui.controls?.initialize === 'function') ui.controls.initialize();
+    else ui.controls?.render?.({ reset: true });
+  } catch (err) { console.warn(`${MOD} | Cannot refresh controls`, err); }
+}
+
 
 function getBookJournal(book) {
   return game.journal.find(j => j.getFlag(MOD, 'book') === book || (j.getFlag(MOD, 'bookRoot') && j.getFlag(MOD, 'bookType') === book)) ?? null;
@@ -50,13 +82,14 @@ async function ensureBookJournal(book) {
   if (journal || !game.user.isGM) return journal;
   journal = await JournalEntry.create({
     name: BOOKS[book],
-    ownership: allPlayersOwnership(),
+    ownership: ownershipFor(book),
     flags: { [MOD]: { bookRoot: true, bookType: book, book } }
   });
   return journal;
 }
 
 function getPosters(book = S.book) {
+  if (!canSeeBook(book)) return [];
   const journal = getBookJournal(book);
   if (!journal) return [];
   if (!game.user.isGM && !journal.testUserPermission(game.user, 'OBSERVER')) return [];
@@ -69,10 +102,13 @@ async function syncOwnership() {
     const journal = getBookJournal(book);
     if (!journal) continue;
     const changes = {};
+    // Permission settings are authoritative, even if the old journal had public access.
+    if ((journal.ownership?.default ?? 0) !== 0) changes['ownership.default'] = 0;
     for (const u of game.users) {
       if (u.isGM) continue;
-      if (allowedUsers()[u.id] && journal.ownership?.[u.id] !== 2) changes[`ownership.${u.id}`] = 2;
-      if (!allowedUsers()[u.id] && journal.ownership?.[u.id] !== undefined) changes[`ownership.-=${u.id}`] = null;
+      const permitted = !!permissions()[book]?.[u.id];
+      if (permitted && journal.ownership?.[u.id] !== 2) changes[`ownership.${u.id}`] = 2;
+      if (!permitted && journal.ownership?.[u.id] !== undefined) changes[`ownership.-=${u.id}`] = null;
     }
     if (Object.keys(changes).length) await journal.update(changes);
   }
@@ -92,20 +128,19 @@ function actorOptions(selectedUuid) {
 function posterThumb(page) {
   const uuid = page.getFlag(MOD, 'uuid') ?? '';
   const actor = uuid ? fromUuidSync(uuid) : null;
-  const img = page.getFlag(MOD, 'image') || actor?.img || 'icons/svg/mystery-man.svg';
+  const img = page.getFlag(MOD, 'image') || (page.type === 'image' ? page.src : '') || actor?.img || 'icons/svg/mystery-man.svg';
   return img;
 }
 
 function previewHTML(page) {
   const uuid = page?.getFlag(MOD, 'uuid') ?? '';
   const actor = uuid ? fromUuidSync(uuid) : null;
-  const image = page ? (page.getFlag(MOD, 'image') || actor?.img || 'icons/svg/mystery-man.svg') : 'icons/svg/mystery-man.svg';
+  const image = page ? posterThumb(page) : 'icons/svg/mystery-man.svg';
   const rawStatus = page?.getFlag(MOD, 'status') ?? 'None';
   const status = ({ active: 'Wanted', claimed: 'Captured', lost: 'Missing', dropped: 'Cleared' })[rawStatus] || rawStatus;
-  const rank = page?.getFlag(MOD, 'rank') ?? 'D';
+  const rank = rankFor(page?.getFlag(MOD, 'rank'));
   const bg = page?.getFlag(MOD, 'background') ?? 'parchment';
   const notes = page?.getFlag(MOD, 'notes') ?? '';
-  const title = page?.name ?? 'New Poster';
 
   return `
     <div class="bb-preview-wrap">
@@ -116,19 +151,91 @@ function previewHTML(page) {
           ${status && status !== 'None' ? `<div class="bb-stamp stamp-${esc(status.toLowerCase())}">${esc(status)}</div>` : ''}
         </div>
       </div>
-      <div class="bb-preview-title">${esc(title)}</div>
       ${notes ? `<div class="bb-preview-notes">${esc(notes)}</div>` : ''}
     </div>`;
 }
 
 function accessHTML() {
-  const allowed = allowedUsers();
+  const allowed = permissions();
+  const users = game.users.filter(u => !u.isGM);
   return `<section class="bb-editor bb-access">
     <h3>Player access</h3>
-    <p>Choose the players who may view Bingo Book and Target Book.</p>
-    ${game.users.filter(u => !u.isGM).map(u => `<label class="bb-user"><input type="checkbox" data-user="${esc(u.id)}" ${allowed[u.id] ? 'checked' : ''}> ${esc(u.name)}</label>`).join('') || '<p>No players in the world.</p>'}
-    <p>Only GMs can edit posters, statuses, ranks and backgrounds.</p>
+    <p>Each book has its own browsing permissions. Changes apply to the selected book only.</p>
+    <div class="bb-permission-table" role="table" aria-label="Book access">
+      <div class="bb-permission-row bb-permission-header" role="row">
+        <span>Player</span><span>Bingo Book</span><span>Target Book</span>
+      </div>
+      ${users.map(u => `<div class="bb-permission-row" role="row">
+        <span>${esc(u.name)}</span>
+        ${Object.keys(BOOKS).map(book => `<label class="bb-permission-cell" title="${esc(BOOKS[book])} - ${esc(u.name)}">
+          <input type="checkbox" aria-label="${esc(BOOKS[book])}: ${esc(u.name)}" data-permission-book="${book}" data-user="${esc(u.id)}" ${allowed[book]?.[u.id] ? 'checked' : ''}>
+        </label>`).join('')}
+      </div>`).join('') || '<p>No players in this world.</p>'}
+    </div>
+    <p class="bb-access-note">These settings control browsing. <b>Show in Chat</b> can reveal an individual poster to chosen players without giving them access to the book.</p>
   </section>`;
+}
+
+function chatShareHTML() {
+  const users = game.users.filter(u => !u.isGM);
+  return `<div class="bb-chat-share">
+    <div class="bb-share-title"><i class="fa-solid fa-comments"></i> Share poster in chat</div>
+    <label class="bb-audience"><input type="radio" name="bb-chat-audience" value="everyone" ${S.chatAudience === 'everyone' ? 'checked' : ''}> Everyone (public chat)</label>
+    <label class="bb-audience"><input type="radio" name="bb-chat-audience" value="selected" ${S.chatAudience === 'selected' ? 'checked' : ''}> Selected players (private whisper)</label>
+    ${S.chatAudience === 'selected' ? `<div class="bb-chat-users">
+      ${users.map(u => `<label><input type="checkbox" data-chat-recipient="${esc(u.id)}" ${S.chatRecipients.includes(u.id) ? 'checked' : ''}> ${esc(u.name)}</label>`).join('') || '<div>No players in the world.</div>'}
+    </div>` : ''}
+    <div class="bb-chat-actions">
+      <button type="button" data-act="send-chat"><i class="fa-solid fa-paper-plane"></i> Send to Chat</button>
+      <button type="button" data-act="cancel-chat">Cancel</button>
+    </div>
+  </div>`;
+}
+
+// The same rendered poster is used for browsing and the chat message. The chat
+// message contains only escaped text and the image path; no document permissions
+// or edit controls are embedded in the message.
+function chatPosterHTML(page, book) {
+  const image = posterThumb(page);
+  const rawStatus = page.getFlag(MOD, 'status') ?? 'None';
+  const status = ({ active: 'Wanted', claimed: 'Captured', lost: 'Missing', dropped: 'Cleared' })[rawStatus] || rawStatus;
+  const rank = rankFor(page.getFlag(MOD, 'rank'));
+  const background = page.getFlag(MOD, 'background') ?? 'parchment';
+  const bg = Object.prototype.hasOwnProperty.call(BACKGROUNDS, background) ? background : 'parchment';
+  return `<div class="bb-chat-poster">
+    <div class="bb-chat-heading">${esc(BOOKS[book])}</div>
+    <div class="bb-poster-card bg-${bg}">
+      <div class="bb-poster-inner">
+        <img class="bb-poster-image" src="${esc(imgSrc(image))}" alt="${esc(page.name)}">
+        <div class="bb-rank-badge rank-${rank}">Rank ${rank}</div>
+        ${status !== 'None' ? `<div class="bb-stamp stamp-${esc(status.toLowerCase())}">${esc(status)}</div>` : ''}
+      </div>
+    </div>
+    <div class="bb-chat-poster-name">${esc(page.name)}</div>
+  </div>`;
+}
+
+async function sendPosterToChat(page, book) {
+  if (!game.user.isGM || !page || !BOOKS[book]) return;
+  let whisper;
+  if (S.chatAudience === 'selected') {
+    const recipients = game.users.filter(u => !u.isGM && S.chatRecipients.includes(u.id));
+    if (!recipients.length) {
+      ui.notifications.warn('Select at least one player before sending a private poster.');
+      return;
+    }
+    // Always include all GMs, so the sender can see the message in chat.
+    whisper = [...new Set([...recipients.map(u => u.id), ...game.users.filter(u => u.isGM).map(u => u.id)])];
+  }
+  const msg = {
+    user: game.user.id,
+    content: chatPosterHTML(page, book),
+    speaker: ChatMessage.getSpeaker({ alias: BOOKS[book] })
+  };
+  if (whisper) msg.whisper = whisper;
+  await ChatMessage.create(msg);
+  S.chatOpen = false;
+  refresh();
 }
 
 function emptyState(gm) {
@@ -141,7 +248,7 @@ function formHTML(page, gm) {
   const image = page.getFlag(MOD, 'image') ?? '';
   const rawStatus = page.getFlag(MOD, 'status') ?? 'None';
   const status = ({ active: 'Wanted', claimed: 'Captured', lost: 'Missing', dropped: 'Cleared' })[rawStatus] || rawStatus;
-  const rank = page.getFlag(MOD, 'rank') ?? 'D';
+  const rank = rankFor(page.getFlag(MOD, 'rank'));
   const background = page.getFlag(MOD, 'background') ?? 'parchment';
   const notes = page.getFlag(MOD, 'notes') ?? '';
 
@@ -186,6 +293,11 @@ function formHTML(page, gm) {
           <div class="bb-section">
             <h3>Preview</h3>
             ${previewHTML(page)}
+            <div class="bb-preview-footer">
+              <span class="bb-preview-footer-title">${esc(page.name)}</span>
+              ${gm ? `<button type="button" data-act="toggle-chat" class="bb-show-chat"><i class="fa-solid fa-comment-dots"></i> Show in Chat</button>` : ''}
+            </div>
+            ${gm && S.chatOpen ? chatShareHTML() : ''}
           </div>
         </div>
       </div>
@@ -195,9 +307,15 @@ function formHTML(page, gm) {
 async function draw(root) {
   if (!root?.isConnected) return;
   const nonce = ++renderNonce;
-  await ensureBookJournal('bingo');
-  await ensureBookJournal('target');
   const gm = game.user.isGM;
+  // Players must never switch to or see the title of a restricted book.
+  const books = availableBooks();
+  if (!books.length) { root.innerHTML = '<div class="bb-empty">You do not have access to either book.</div>'; return; }
+  if (!books.includes(S.book)) { S.book = books[0]; S.selected = null; S.chatOpen = false; }
+  if (gm) {
+    await ensureBookJournal('bingo');
+    await ensureBookJournal('target');
+  }
   const posters = getPosters(S.book);
   if (!posters.some(p => p.id === S.selected)) S.selected = posters[0]?.id ?? null;
   const page = getSelectedPage();
@@ -206,7 +324,7 @@ async function draw(root) {
     <div class="bb-shell">
       <header class="bb-topbar">
         <div class="bb-tabs">
-          ${Object.entries(BOOKS).map(([k, label]) => `<button type="button" class="bb-tab${S.book === k ? ' active' : ''}" data-act="switch-book" data-book="${k}">${esc(label)}</button>`).join('')}
+          ${Object.entries(BOOKS).filter(([k]) => books.includes(k)).map(([k, label]) => `<button type="button" class="bb-tab${S.book === k ? ' active' : ''}" data-act="switch-book" data-book="${k}">${esc(label)}</button>`).join('')}
         </div>
       </header>
       <div class="bb-body">
@@ -220,7 +338,7 @@ async function draw(root) {
               const thumb = posterThumb(p);
               const rawStatus = p.getFlag(MOD, 'status') ?? 'None';
               const status = ({ active: 'Wanted', claimed: 'Captured', lost: 'Missing', dropped: 'Cleared' })[rawStatus] || rawStatus;
-              const rank = p.getFlag(MOD, 'rank') ?? 'D';
+              const rank = rankFor(p.getFlag(MOD, 'rank'));
               return `<button type="button" class="bb-list-item${p.id === S.selected ? ' active' : ''}" data-act="select-poster" data-page="${p.id}">
                 <img src="${esc(imgSrc(thumb))}" alt="">
                 <span class="bb-li-main">
@@ -259,17 +377,22 @@ function mount(root, app) {
       S.book = el.dataset.book || 'bingo';
       S.selected = null;
       S.showPlayers = false;
+      S.chatOpen = false;
       refresh();
       return;
     }
     if (act === 'select-poster') {
       S.selected = el.dataset.page;
+      S.chatOpen = false;
       refresh();
       return;
     }
     if (!gm) return;
 
     switch (act) {
+      case 'toggle-chat': S.chatOpen = !S.chatOpen; refresh(); break;
+      case 'cancel-chat': S.chatOpen = false; refresh(); break;
+      case 'send-chat': await sendPosterToChat(currentPage(), S.book); break;
       case 'toggle-players': S.showPlayers = !S.showPlayers; refresh(); break;
       case 'add-poster': {
         const journal = await ensureBookJournal(S.book);
@@ -317,10 +440,24 @@ function mount(root, app) {
 
   root.addEventListener('change', async ev => {
     if (!game.user.isGM) return;
-    const userBox = ev.target.closest('[data-user]');
-    if (userBox) {
-      await game.settings.set(MOD, 'allowedUsers', { ...allowedUsers(), [userBox.dataset.user]: userBox.checked });
+    const permissionBox = ev.target.closest('[data-permission-book][data-user]');
+    if (permissionBox) {
+      const book = permissionBox.dataset.permissionBook;
+      if (!BOOKS[book] || !game.users.get(permissionBox.dataset.user) || game.users.get(permissionBox.dataset.user).isGM) return;
+      const next = foundry.utils.deepClone(permissions());
+      next[book] ||= {};
+      next[book][permissionBox.dataset.user] = permissionBox.checked;
+      await game.settings.set(MOD, 'bookPermissions', next);
       await syncOwnership();
+      updateControls();
+      return;
+    }
+    const audienceBox = ev.target.closest('input[name="bb-chat-audience"]');
+    if (audienceBox) { S.chatAudience = audienceBox.value; refresh(); return; }
+    const recipientBox = ev.target.closest('[data-chat-recipient]');
+    if (recipientBox) {
+      const id = recipientBox.dataset.chatRecipient;
+      S.chatRecipients = recipientBox.checked ? [...new Set([...S.chatRecipients, id])] : S.chatRecipients.filter(userId => userId !== id);
       return;
     }
     const field = ev.target.closest('[data-field]');
@@ -342,7 +479,7 @@ function mount(root, app) {
     const field = ev.target.closest('textarea[data-field="notes"], input[data-field="name"]');
     if (!field || !game.user.isGM) return;
     if (field.dataset.field === 'name') {
-      const title = root.querySelector('.bb-preview-title');
+      const title = root.querySelector('.bb-preview-footer-title');
       if (title) title.textContent = field.value || 'New Poster';
     }
   });
@@ -371,23 +508,29 @@ class BingoBookApp extends Application {
 }
 
 function openBook() {
-  if (!canSee()) return ui.notifications.warn('Bingo Book is not available to you.');
-  if (win?.rendered) return win.bringToTop();
+  if (!canSee()) return ui.notifications.warn('Neither book is available to you.');
+  if (win?.rendered) { refresh(); return win.bringToTop(); }
   win = new BingoBookApp();
   renderApp(win);
 }
 
 Hooks.once('init', () => {
-  game.settings.register(MOD, 'allowedUsers', { scope: 'world', config: false, type: Object, default: {} });
+  game.settings.register(MOD, 'allowedUsers', { scope: 'world', config: false, type: Object, default: {} }); // legacy migration only
+  game.settings.register(MOD, 'permissionsMigrated', { scope: 'world', config: false, type: Boolean, default: false });
+  game.settings.register(MOD, 'bookPermissions', {
+    scope: 'world', config: false, type: Object, default: { bingo: {}, target: {} },
+    onChange: () => { updateControls(); if (!canSee() && win?.rendered) win.close(); else refresh(); }
+  });
 });
 
 Hooks.once('ready', async () => {
   if (game.user.isGM) {
+    await migratePermissions();
     await ensureBookJournal('bingo');
     await ensureBookJournal('target');
     await syncOwnership();
   }
-  game.modules.get(MOD).api = { open: openBook };
+  game.modules.get(MOD).api = { open: openBook, openBingo: () => { S.book = 'bingo'; openBook(); refresh(); }, openTarget: () => { S.book = 'target'; openBook(); refresh(); } };
 });
 
 Hooks.on('getSceneControlButtons', controls => {
@@ -409,7 +552,7 @@ for (const hook of ['createJournalEntryPage', 'updateJournalEntryPage', 'deleteJ
 }
 
 Hooks.on('updateJournalEntry', journal => {
-  if (journal.getFlag(MOD, 'bookRoot')) refreshSoon();
+  if (journal.getFlag(MOD, 'bookRoot') || journal.getFlag(MOD, 'book')) refreshSoon();
 });
 
 Hooks.on('renderJournalDirectory', (app, html) => {
@@ -417,7 +560,7 @@ Hooks.on('renderJournalDirectory', (app, html) => {
   const root = html?.[0] ?? html;
   if (!root) return;
   for (const journal of game.journal) {
-    if (!journal.getFlag(MOD, 'bookRoot')) continue;
+    if (!journal.getFlag(MOD, 'bookRoot') && !journal.getFlag(MOD, 'book')) continue;
     root.querySelectorAll(`[data-document-id="${journal.id}"], [data-entry-id="${journal.id}"]`).forEach(e => e.remove());
   }
 });

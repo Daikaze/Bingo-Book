@@ -1,22 +1,23 @@
-# Bingo Book & Target Book 0.3.0 — Foundry VTT V11
+# Bingo Book & Target Book v0.3.1 — Foundry VTT v11
 
-A wanted-poster library for Foundry Virtual Tabletop v11. Import **complete poster images** (no generated poster templates). Select Bingo Book or Target Book with the top tabs. The editor uses a light, parchment-style v11 interface.
+A gallery for **ready-made wanted poster images**, with two independently permissioned books. No poster-template generator is needed. The editor retains the light classic Foundry v11 paper layout.
 
 ## Features
-- Select **Bingo Book** or **Target Book** using the top tabs.
-- GM: add poster, choose an image with Foundry FilePicker, optionally link an Actor, and rename the entry.
-- Choose a **Status** (None, Wanted, Dead, Captured, Missing, Cleared). The translucent stamp overlays the image without editing the original file.
-- Choose a **Rank** from S, A, B, C, D. The rank is shown in a small badge.
-- Choose the card **Background**: Parchment, Book Page, Dark Page, Clean Frame.
-- Player access is controlled by the GM via **Players**. Players only see shared posters and cannot edit.
-- Existing v0.2.1 book journals are reused; existing images remain referenced in Foundry user data. Original v0.1 category journals are not deleted.
 
-## Install
+- Top tabs: **Bingo Book** and **Target Book**. Players see only the books their GM permits.
+- GM-only **Players** panel: grant or revoke **Bingo Book** and **Target Book** access separately for each player. Access is also enforced through the backing Journal permissions. Existing shared access from v0.3.0 is automatically copied to BOTH books on the first GM load; they can then be adjusted independently.
+- Import complete PNG/JPEG/WEBP wanted posters with the Foundry FilePicker; optionally link an Actor and rename the entry.
+- Status stamps (None, Wanted, Dead, Captured, Missing, Cleared) are translucent image overlays. Original image files are not altered.
+- S, A, B, C, D rank badges (old numeric 5–1 ranks display as S–D) and card backgrounds: Parchment, Book Page, Dark Page, Clean Frame.
+- **Show in Chat** beside the poster's name: choose **Everyone (public chat)** or **Selected players (private whisper)**. When private, select one or more recipients before sending. Chat includes the full image, rank and status stamp. GM recipients are included in whispers so the sender can view the post.
+- A GM can explicitly share an individual poster to a player in chat without granting access to the underlying book. A chat share does not update book permissions.
 
-Use the module manifest URL in Foundry's Install Module interface:
+## Install / Update
 
-`https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/module.json`
+Manifest URL: `https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/module.json`
 
-Or download the zip from [`dist/bingo-book-v11-v0.3.0.zip`](dist/bingo-book-v11-v0.3.0.zip) and extract it so the module is at `Data/modules/bingo-book/module.json`.
+ZIP: [`dist/bingo-book-v11-v0.3.1.zip`](dist/bingo-book-v11-v0.3.1.zip)
 
-**Back up your Foundry world before updating.** Foundry V11 is the compatibility target. JavaScript syntax and archive integrity were checked; the package has not been tested inside a live Foundry world.
+Always **back up your world** before upgrading. The module reuses existing v0.2/v0.3 Bingo & Target Journal pages, including their images and status metadata. It does not delete the source pictures. The original shared permission list is retained for migration. After updating, open **Players** to adjust separate book access.
+
+Automated test checks cover permission migration, journal access synchronization, rank compatibility and public/private chat message routing. **Not verified in a live Foundry v11 client.**
