@@ -20,7 +20,8 @@ const S = {
   showPlayers: false,
   chatOpen: false,
   chatAudience: 'everyone',
-  chatRecipients: []
+  chatRecipients: [],
+  rankFilter: 'all'
 };
 let win = null;
 let renderNonce = 0;
@@ -133,7 +134,7 @@ function posterThumb(page) {
   return img;
 }
 
-function previewHTML(page) {
+function previewHTML(page, includeNotes = true) {
   const uuid = page?.getFlag(MOD, 'uuid') ?? '';
   const actor = uuid ? fromUuidSync(uuid) : null;
   const image = page ? posterThumb(page) : 'icons/svg/mystery-man.svg';
@@ -152,8 +153,30 @@ function previewHTML(page) {
           ${status && status !== 'None' ? `<div class="bb-stamp stamp-${esc(status.toLowerCase())}">${esc(status)}</div>` : ''}
         </div>
       </div>
-      ${notes ? `<div class="bb-preview-notes">${esc(notes)}</div>` : ''}
+      ${includeNotes && notes ? `<div class="bb-preview-notes">${esc(notes)}</div>` : ''}
     </div>`;
+}
+
+
+// Rank categories are simple filters on existing Journal pages.
+function rankCategoriesHTML(allPosters) {
+  const counts = Object.fromEntries(RANKS.map(rank => [rank, 0]));
+  for (const page of allPosters) counts[rankFor(page.getFlag(MOD, 'rank'))]++;
+  const choices = [['all', 'All Ranks', allPosters.length], ...RANKS.map(rank => [rank, `Rank ${rank}`, counts[rank]])];
+  return `<nav class="bb-rank-categories" aria-label="Poster rank categories">
+    ${choices.map(([rank, label, count]) => `<button type="button" class="bb-rank-filter${S.rankFilter === rank ? ' active' : ''}"
+      data-act="select-rank" data-rank="${rank}" aria-pressed="${S.rankFilter === rank}">
+      <span>${esc(label)}</span><span class="bb-rank-count">${count}</span></button>`).join('')}
+  </nav>`;
+}
+
+// Non-GMs only see the book's navigation and image. No editor metadata.
+function playerViewHTML(page) {
+  if (!page) return `<section class="bb-player-stage">${emptyState(false)}</section>`;
+  return `<section class="bb-player-stage" aria-label="Poster preview">
+    <div class="bb-player-preview">${previewHTML(page, false)}</div>
+    <strong class="bb-player-title">${esc(page.name)}</strong>
+  </section>`;
 }
 
 function accessHTML() {
@@ -369,7 +392,8 @@ async function draw(root) {
     await ensureBookJournal('bingo');
     await ensureBookJournal('target');
   }
-  const posters = getPosters(S.book);
+  const allPosters = getPosters(S.book);
+  const posters = S.rankFilter === 'all' ? allPosters : allPosters.filter(p => rankFor(p.getFlag(MOD, 'rank')) === S.rankFilter);
   if (!posters.some(p => p.id === S.selected)) S.selected = posters[0]?.id ?? null;
   const page = getSelectedPage();
 
@@ -388,6 +412,7 @@ async function draw(root) {
             <span>${esc(BOOKS[S.book])}</span>
             ${gm ? `<button type="button" data-act="add-poster"><i class="fa-solid fa-plus"></i></button>` : ''}
           </div>
+          ${rankCategoriesHTML(allPosters)}
           <div class="bb-poster-list">
             ${posters.length ? posters.map(p => {
               const thumb = posterThumb(p);
@@ -405,7 +430,7 @@ async function draw(root) {
           </div>
           ${gm ? `<div class="bb-sidebar-foot"><button type="button" data-act="toggle-players"><i class="fa-solid fa-users"></i> ${S.showPlayers ? 'Back to posters' : 'Players'}</button>${page && !S.showPlayers ? `<button type="button" data-act="delete-poster" class="danger"><i class="fa-solid fa-trash"></i> Delete poster</button>` : ''}</div>` : ''}
         </aside>
-        ${S.showPlayers && gm ? accessHTML() : formHTML(page, gm)}
+        ${gm ? (S.showPlayers ? accessHTML() : formHTML(page, true)) : playerViewHTML(page)}
       </div>
     </div>`;
 
@@ -430,14 +455,28 @@ function mount(root, app) {
     const gm = game.user.isGM;
 
     if (act === 'switch-book') {
-      S.book = el.dataset.book || 'bingo';
+      if (!canSeeBook(el.dataset.book)) return;
+      S.book = el.dataset.book;
+      S.rankFilter = 'all';
       S.selected = null;
       S.showPlayers = false;
       S.chatOpen = false;
       refresh();
       return;
     }
+    if (act === 'select-rank') {
+      const rank = el.dataset.rank;
+      if (rank !== 'all' && !RANKS.includes(rank)) return;
+      S.rankFilter = rank;
+      S.selected = null;
+      S.chatOpen = false;
+      refresh();
+      return;
+    }
     if (act === 'select-poster') {
+      const matching = getPosters(S.book).some(p => p.id === el.dataset.page &&
+        (S.rankFilter === 'all' || rankFor(p.getFlag(MOD, 'rank')) === S.rankFilter));
+      if (!matching) return;
       S.selected = el.dataset.page;
       S.chatOpen = false;
       refresh();
@@ -456,7 +495,7 @@ function mount(root, app) {
           name: 'New Poster',
           type: 'text',
           text: { content: '', format: 1 },
-          flags: { [MOD]: { image: '', status: 'None', rank: 'D', background: 'parchment', uuid: '', notes: '' } }
+          flags: { [MOD]: { image: '', status: 'None', rank: S.rankFilter === 'all' ? 'D' : S.rankFilter, background: 'parchment', uuid: '', notes: '' } }
         }]);
         S.selected = created?.[0]?.id ?? null;
         refresh();
@@ -536,8 +575,15 @@ function mount(root, app) {
       }
       // A user may select another poster while the save is in-flight.
       if (currentPage()?.id === page.id) {
-        updateVisiblePoster(root, page);
-        restoreView(root, view);
+        if (field.dataset.field === 'rank' && S.rankFilter !== 'all' && rankFor(value) !== S.rankFilter) {
+          S.selected = null;
+          refresh();
+        } else {
+          updateVisiblePoster(root, page);
+          const nav = root.querySelector('.bb-rank-categories');
+          if (nav) nav.outerHTML = rankCategoriesHTML(getPosters(S.book));
+          restoreView(root, view);
+        }
       }
     } catch (error) {
       console.error(`${MOD} | Failed to save poster`, error);
@@ -567,8 +613,8 @@ class BingoBookApp extends Application {
       classes: ['bingo-book'],
       template: `modules/${MOD}/templates/book.hbs`,
       title: 'Bingo Book',
-      width: 1080,
-      height: 760,
+      width: game.user.isGM ? 1080 : 750,
+      height: game.user.isGM ? 760 : 590,
       resizable: true
     });
   }

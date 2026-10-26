@@ -401,3 +401,102 @@
   overflow: visible;
   transform: rotate(-7deg);
 }
+
+
+/* v0.3.6 — full-size original angled stamp, scaled to fit chat. */
+.bingo-book .bb-poster-inner,
+.bb-chat-poster .bb-poster-inner { container-type: inline-size; }
+.bingo-book .bb-poster-inner .bb-stamp,
+.bb-chat-poster .bb-poster-inner .bb-stamp {
+  position: absolute;
+  z-index: 2;
+  top: 39%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  transform-origin: center;
+  display: block;
+  width: max-content;
+  max-width: 85%;
+  box-sizing: border-box;
+  padding: 5px 10px;
+  border: 4px solid currentColor;
+  border-radius: 6px;
+  font-family: Impact, 'Arial Black', sans-serif;
+  font-weight: 800;
+  font-size: clamp(16px, 11cqw, 41px);
+  line-height: 1.08;
+  letter-spacing: .075em;
+  text-align: center;
+  white-space: nowrap;
+  text-transform: uppercase;
+  opacity: .78;
+  background: rgba(255,255,255,.13);
+  pointer-events: none;
+}
+.bingo-book .bb-poster-inner .stamp-captured,
+.bingo-book .bb-poster-inner .stamp-missing,
+.bingo-book .bb-poster-inner .stamp-cleared,
+.bb-chat-poster .bb-poster-inner .stamp-captured,
+.bb-chat-poster .bb-poster-inner .stamp-missing,
+.bb-chat-poster .bb-poster-inner .stamp-cleared { font-size: clamp(15px, 9.3cqw, 35px); }
+/* Two-pane player view with the GM controls omitted. */
+.bingo-book .bb-player-stage {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px;
+  gap: 8px;
+}
+.bingo-book .bb-player-preview { width: min(100%, 375px); }
+.bingo-book .bb-player-stage .bb-poster-card { width: 100%; }
+.bingo-book .bb-player-stage .bb-poster-inner { min-height: 0; }
+.bingo-book .bb-player-stage .bb-poster-image { max-height: 450px; }
+.bingo-book .bb-player-title { font-size: 16px; overflow-wrap: anywhere; }
+/* Left-side rank categories for both books. */
+.bingo-book .bb-rank-categories {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  padding: 10px 9px;
+  border-bottom: 1px solid #b7ad98;
+  background: rgba(255,255,255,.19);
+}
+.bingo-book .bb-rank-filter {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 29px;
+  padding: 4px 6px;
+  border: 1px solid #bcae92;
+  border-radius: 4px;
+  color: #413424;
+  background: #ede7da;
+  font: 700 12px/1.2 Georgia, serif;
+  cursor: pointer;
+}
+.bingo-book .bb-rank-filter:first-child { grid-column: 1 / -1; }
+.bingo-book .bb-rank-filter.active {
+  background: #c8aa7a;
+  border-color: #a77a39;
+  box-shadow: inset 0 0 0 1px #b18b52;
+}
+.bingo-book .bb-rank-count {
+  min-width: 21px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  text-align: center;
+  background: rgba(80,57,30,.13);
+  font-family: Arial,sans-serif;
+  font-size: 11px;
+}
+@media (max-width: 700px) {
+  .bingo-book .bb-body { grid-template-columns: 195px 1fr; }
+  .bingo-book .bb-player-stage { padding: 10px; }
+}

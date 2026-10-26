@@ -35,3 +35,11 @@ Automated test checks cover permission migration, journal access synchronization
 - Restores the larger angled **stamp** lettering in chat without clipping the poster.
 - Preserves the full poster image proportions and the two-pane book interface from v0.3.4.
 - Player access and targeted Show in Chat recipients remain unchanged.
+
+
+## Version 0.3.6
+
+- Players retain the two-pane book layout but see **only** the poster image and title, not the GM editor (Title, Actor, Art, Style, Notes).
+- Rank categories (All, S, A, B, C, D) in the left sidebar filter existing posters without duplicating data. Legacy numeric ranks are mapped to S–D.
+- The original large diagonal status stamp is restored; it scales to fit complete uncropped chat poster images, including long words.
+- Separate Bingo/Target permissions and targeted Show in Chat remain intact.
