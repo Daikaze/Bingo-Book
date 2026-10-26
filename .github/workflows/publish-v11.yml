@@ -1,0 +1,31 @@
+name: Publish Bingo Book v11
+on:
+  push:
+    paths:
+      - "bingo-book-src.tar.xz"
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack v11 source and build installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xJf bingo-book-src.tar.xz
+          mkdir -p dist
+          zip -qr dist/bingo-book-v11-v0.2.0.zip bingo-book
+          cp -a bingo-book/. .
+          rm -rf bingo-book bingo-book-src.tar.xz
+      - name: Commit module to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish Bingo Book v0.2.0 (Foundry v11)"
+            git push
+          fi
