@@ -1,8 +1,8 @@
 {
   "id": "bingo-book",
   "title": "Bingo Book & Target Book",
-  "description": "Import complete wanted poster images to Bingo Book or Target Book, with the original parchment interface, GM controls and player access. Foundry VTT v11.",
-  "version": "0.2.1",
+  "description": "Foundry VTT v11 complete wanted poster import, S-D ranks, status stamps, page backgrounds and classic v11 editor layout.",
+  "version": "0.3.0",
   "compatibility": {
     "minimum": "11",
     "verified": "11"
@@ -10,6 +10,9 @@
   "authors": [
     {
       "name": "Vlai"
+    },
+    {
+      "name": "Daikaze"
     }
   ],
   "esmodules": [
@@ -27,5 +30,5 @@
   ],
   "url": "https://github.com/Daikaze/Bingo-Book",
   "manifest": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/module.json",
-  "download": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/dist/bingo-book-v11-v0.2.1.zip"
+  "download": "https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/dist/bingo-book-v11-v0.3.0.zip"
 }

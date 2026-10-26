@@ -1,26 +1,22 @@
-# Bingo Book & Target Book v0.2.1 — Foundry VTT v11
+# Bingo Book & Target Book 0.3.0 — Foundry VTT V11
 
-Wanted posters are **complete image files you supply**, not compositions assembled by the module. The original v0.1 parchment/wood visual style is restored, while navigation uses two **top-level tabs** for Bingo Book and Target Book.
+A wanted-poster library for Foundry Virtual Tabletop v11. Import **complete poster images** (no generated poster templates). Select Bingo Book or Target Book with the top tabs. The editor uses a light, parchment-style v11 interface.
 
-## How to use
+## Features
+- Select **Bingo Book** or **Target Book** using the top tabs.
+- GM: add poster, choose an image with Foundry FilePicker, optionally link an Actor, and rename the entry.
+- Choose a **Status** (None, Wanted, Dead, Captured, Missing, Cleared). The translucent stamp overlays the image without editing the original file.
+- Choose a **Rank** from S, A, B, C, D. The rank is shown in a small badge.
+- Choose the card **Background**: Parchment, Book Page, Dark Page, Clean Frame.
+- Player access is controlled by the GM via **Players**. Players only see shared posters and cannot edit.
+- Existing v0.2.1 book journals are reused; existing images remain referenced in Foundry user data. Original v0.1 category journals are not deleted.
 
-1. Open the book from **Token Controls**.
-2. Select **Bingo Book** or **Target Book** at the top.
-3. As GM, click **Add Poster Image** and choose or upload an existing poster PNG, JPG, or WEBP using Foundry's own image browser.
-4. The entire picture appears unchanged — **no crop, color filter, 'Wanted' text, generated rank, generated reward, notes, or template layer**.
-5. Click an image or its picture icon to replace it. You can edit the name, update status, delete the image entry, or drop an Actor/Item onto a card to link its sheet.
-6. **Players** sets who may view the books (read-only for non-GMs).
+## Install
 
-## Installing
-
-Unzip into `FoundryVTT/Data/modules/` so that `bingo-book/module.json` exists, then enable the module in the world. Foundry v11 compatibility is the target. You can alternatively use the module manifest URL:
+Use the module manifest URL in Foundry's Install Module interface:
 
 `https://raw.githubusercontent.com/Daikaze/Bingo-Book/main/module.json`
 
-## Updating safely
+Or download the zip from [`dist/bingo-book-v11-v0.3.0.zip`](dist/bingo-book-v11-v0.3.0.zip) and extract it so the module is at `Data/modules/bingo-book/module.json`.
 
-**Back up your world** first. Existing v0.2.0 Bingo/Target Book JournalEntries and pictures are reused, including poster image paths stored in `flags.bingo-book.image`. If an entry has no image path but selected a custom v0.2.0 image template, the template image is displayed as a fallback. The prior templates setting is retained for compatibility, but its manager and selector are removed. Other old metadata is not deleted.
-
-Original v0.1.x category posters are automatically copied into Bingo Book once; source journals remain as private backups. Nothing is removed from either book when updating. The actual image files stay in your Foundry user data, not in this package.
-
-Console API: `game.modules.get("bingo-book").api.open()`, `.openBingo()`, `.openTarget()`.
+**Back up your Foundry world before updating.** Foundry V11 is the compatibility target. JavaScript syntax and archive integrity were checked; the package has not been tested inside a live Foundry world.

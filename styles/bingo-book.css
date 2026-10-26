@@ -1,63 +1,249 @@
-/* Bingo Book — original v0.1 parchment/wood aesthetic, rebuilt for image-only posters. */
-.bingo-book .window-content { padding: 0 !important; overflow: hidden; }
-.bingo-book .bb-root { height: 100%; min-height: 0; }
-.bingo-book .bb-layout { display: flex; flex-direction: column; height: 100%; min-height: 0; background: #2b2118; color: #2b1d0e; font-family: Georgia, "Times New Roman", serif; }
-
-/* The only navigation: two tabs across the top. No categories, no template manager. */
-.bingo-book .bb-top-tabs { flex: 0 0 auto; display: flex; gap: 3px; padding: 7px 10px 0; background: #1d1610; border-bottom: 2px solid #5a3f22; }
-.bingo-book .bb-top-tabs .bb-tab { flex: 1 1 0; min-width: 0; width: auto; margin: 0; padding: 11px 9px; border: 1px solid #77552b; border-radius: 5px 5px 0 0; background: #35251a; color: #dec9a2; font-family: inherit; font-size: 1.08em; font-weight: bold; letter-spacing: .04em; cursor: pointer; box-shadow: none; line-height: 1.3; }
-.bingo-book .bb-top-tabs .bb-tab:hover { background: #573b23; color: #fff4d6; }
-.bingo-book .bb-top-tabs .bb-tab.active { border-bottom-color: #9b7442; background: #775027; color: #fff4d6; text-shadow: 0 1px 2px #241509; }
-.bingo-book .bb-top-tabs .bb-tab i { margin-right: 5px; }
-
-/* Original right-side wood/board styling, now full width. */
-.bingo-book .bb-main { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #7a5a36 repeating-linear-gradient(45deg, rgba(0,0,0,.06) 0 6px, transparent 6px 12px); }
-.bingo-book .bb-head { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 9px; padding: 10px 16px; background: rgba(0,0,0,.35); border-bottom: 2px solid #3c2a16; }
-.bingo-book .bb-head h2 { flex: 1 1 auto; margin: 0; padding: 0; border: 0; color: #fff0cc; font-family: Georgia, "Times New Roman", serif; font-size: 1.6em; line-height: 1.3; text-shadow: 1px 1px 3px #000; }
-.bingo-book .bb-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.bingo-book .bb-head button { width: auto; margin: 0; line-height: 26px; min-height: 30px; padding: 0 11px; border-radius: 3px; border: 1px solid #9e7945; background: #422b17; color: #fff0cc; cursor: pointer; font-family: Georgia, "Times New Roman", serif; }
-.bingo-book .bb-head button:hover { background: #644324; box-shadow: inset 0 0 0 1px #c8a56f; }
-.bingo-book .bb-head button i { margin-right: 4px; }
-.bingo-book .bb-grid { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 17px; display: grid; grid-template-columns: repeat(auto-fill,minmax(min(100%,240px),1fr)); gap: 18px; align-items: start; align-content: start; }
-.bingo-book .bb-empty-state { grid-column: 1/-1; margin: 40px auto; color: #fff0cc; font-size: 1.1em; text-align: center; max-width: 420px; line-height: 1.5; }
-
-/* A card holds the complete imported image, with NO forced aspect ratio, crop or overlays. */
-.bingo-book .bb-poster { position: relative; min-width: 0; display: flex; flex-direction: column; filter: drop-shadow(2px 4px 5px rgba(0,0,0,.55)); }
-.bingo-book .bb-paper { position: relative; padding: 10px; background: #ecd9a8 radial-gradient(circle at 30% 20%, #f5e8c0 0%, #e4cd96 70%, #d4b97c 100%); border: 2px solid #8a6a38; color: #2b1d0e; }
-.bingo-book .bb-image { position: relative; width: 100%; overflow: hidden; border: 2px solid #6f512b; background: rgba(47,35,20,.23); text-align: center; }
-.bingo-book .bb-image[data-act] { cursor: pointer; }
-.bingo-book .bb-image[data-act]:focus-visible { outline: 3px solid #7b552a; outline-offset: 2px; }
-.bingo-book .bb-image img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; margin: 0 auto; padding: 0; border: 0; filter: none !important; }
-.bingo-book .bb-image-empty { min-height: 225px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; color: #573e22; font-size: .95em; }
-.bingo-book .bb-image-empty i { font-size: 2.6em; }
-.bingo-book .bb-poster-title { display: block; width: 100%; min-height: 22px; margin: 9px 0 0; color: #392713; text-align: center; font-family: Georgia, "Times New Roman", serif; font-size: 1.06em; font-weight: bold; overflow-wrap: anywhere; }
-.bingo-book input.bb-poster-title { box-sizing: border-box; padding: 3px 5px; border: 1px solid #ab9166; border-radius: 3px; background: rgba(255,255,255,.45); text-overflow: ellipsis; box-shadow: none; }
-.bingo-book input.bb-poster-title:focus { outline-color: #866239; background: #fff0ce; }
-.bingo-book .bb-link { margin-top: 8px; font-size: .86em; text-align: center; overflow-wrap: anywhere; }
-.bingo-book .bb-link a { color: #4a2a0a; font-weight: bold; cursor: pointer; }
-.bingo-book .bb-link button { width: auto; min-width: 18px; margin-left: 4px; line-height: 18px; padding: 0 4px; }
-.bingo-book .bb-hint { color: #5b482d; font-style: italic; font-size: .78em; opacity: .82; }
-
-/* GM-only controls stay BELOW the art and use a readable dropdown in V11. */
-.bingo-book .bb-gm { display: flex; flex: 0 0 auto; gap: 5px; padding: 6px; background: #1d1610; border: 2px solid #8a6a38; border-top: 0; }
-.bingo-book .bb-gm select { flex: 1; min-width: 0; max-width: none; height: 30px; margin: 0; border: 1px solid #96764c; border-radius: 3px; background: #302318; color: #fff1d0; -webkit-text-fill-color: #fff1d0; box-shadow: none; }
-.bingo-book .bb-gm select option { color: #fff1d0; background: #302318; }
-.bingo-book .bb-gm button { width: 34px; flex: 0 0 34px; min-width: 0; height: 30px; margin: 0; padding: 0 5px; line-height: 26px; color: #fff1d0; background: #4c3320; border: 1px solid #96764c; border-radius: 3px; cursor: pointer; }
-.bingo-book .bb-gm button:hover { color: #fff; background: #684529; }
-.bingo-book .bb-status { padding: 5px; color: #eed9b1; text-align: center; background: #3a2a1c; border: 1px solid #8a6a38; border-top: 0; font-size: .86em; }
-
-/* Preserve the first module's parchment player access panel. */
-.bingo-book .bb-players { align-self: center; width: min(90%, 450px); max-height: calc(100% - 48px); margin: 23px auto; padding: 18px 22px; overflow-y: auto; background: #ecd9a8; border: 2px solid #8a6a38; color: #2b1d0e; font-family: Georgia, "Times New Roman", serif; }
-.bingo-book .bb-players h3 { margin: 0 0 9px; border-bottom: 1px solid #4a3318; }
-.bingo-book .bb-players p { line-height: 1.5; }
-.bingo-book .bb-players ul { list-style: none; padding: 0; margin: 8px 0 16px; }
-.bingo-book .bb-players li { padding: 4px 0; }
-.bingo-book .bb-players label { display: flex; align-items: center; gap: 9px; cursor: pointer; }
-.bingo-book .bb-players input[type=checkbox] { width: auto; margin: 0; }
-.bingo-book .bb-players button { width: auto; padding: 4px 14px; background: #614022; color: #fff0cc; border: 1px solid #8a6a38; }
-@media(max-width: 620px) {
-  .bingo-book .bb-head { padding: 8px 10px; }
-  .bingo-book .bb-head h2 { font-size: 1.3em; }
-  .bingo-book .bb-grid { grid-template-columns: repeat(auto-fill,minmax(min(100%,200px),1fr)); gap: 12px; padding: 10px; }
-  .bingo-book .bb-top-tabs .bb-tab { padding: 9px 5px; font-size: 1em; }
+.bingo-book .window-content {
+  padding: 0;
+  overflow: hidden;
+  background: #e6dfd0;
+  color: #2b2b2b;
 }
+.bingo-book .bb-root, .bingo-book .bb-shell { height: 100%; }
+.bingo-book .bb-shell {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(#f1ede4, #dbd3c3);
+  font-size: 14px;
+}
+.bingo-book .bb-topbar {
+  padding: 8px 12px 0;
+  border-bottom: 1px solid #b7ad98;
+}
+.bingo-book .bb-tabs { display: flex; gap: 6px; }
+.bingo-book .bb-tab {
+  border: 1px solid #9f9580;
+  border-bottom: none;
+  background: #d9d0bf;
+  padding: 8px 14px;
+  border-radius: 6px 6px 0 0;
+  font-weight: 600;
+}
+.bingo-book .bb-tab.active {
+  background: #f1ede4;
+  position: relative;
+  top: 1px;
+}
+.bingo-book .bb-body {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 0;
+  flex: 1;
+}
+.bingo-book .bb-sidebar {
+  border-right: 1px solid #b7ad98;
+  background: rgba(255,255,255,0.24);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.bingo-book .bb-sidebar-head,
+.bingo-book .bb-sidebar-foot {
+  padding: 10px;
+  border-bottom: 1px solid #c7bfad;
+}
+.bingo-book .bb-sidebar-foot { border-top: 1px solid #c7bfad; border-bottom: none; }
+.bingo-book .bb-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+}
+.bingo-book .bb-poster-list {
+  padding: 10px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bingo-book .bb-list-item {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  border: 1px solid #b7ad98;
+  background: #f7f4ee;
+  border-radius: 6px;
+  padding: 6px;
+}
+.bingo-book .bb-list-item.active { border-color: #d08b38; box-shadow: 0 0 0 1px #d08b38 inset; }
+.bingo-book .bb-list-item img {
+  width: 42px; height: 42px; object-fit: cover; border-radius: 4px; border: 1px solid #a39985;
+}
+.bingo-book .bb-li-main { min-width: 0; display: flex; flex-direction: column; }
+.bingo-book .bb-li-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bingo-book .bb-li-sub { font-size: 12px; color: #655d50; }
+.bingo-book .bb-editor {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+.bingo-book .bb-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(340px, 430px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.bingo-book .bb-left-form, .bingo-book .bb-right-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bingo-book .bb-section {
+  background: rgba(255,255,255,0.28);
+  border: 1px solid #c1b7a2;
+  border-radius: 6px;
+  padding: 10px;
+}
+.bingo-book .bb-section h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  border-bottom: 1px solid #cfc7b8;
+  padding-bottom: 6px;
+}
+.bingo-book .bb-section label {
+  display: block;
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+.bingo-book .bb-section input[type="text"],
+.bingo-book .bb-section select,
+.bingo-book .bb-section textarea,
+.bingo-book .bb-art-row input {
+  width: 100%;
+  border: 1px solid #b9af9b;
+  border-radius: 4px;
+  background: #f8f5ef;
+  min-height: 32px;
+}
+.bingo-book .bb-section textarea { resize: vertical; min-height: 92px; }
+.bingo-book .bb-readonly {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #c8c0af;
+  background: rgba(255,255,255,0.35);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+.bingo-book .bb-multiline { align-items: flex-start; white-space: pre-wrap; }
+.bingo-book .bb-art-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.bingo-book .bb-btn-row {
+  display: flex;
+  gap: 6px;
+}
+.bingo-book button {
+  border: 1px solid #a69983;
+  border-radius: 4px;
+  background: #ece6da;
+  color: #222;
+  min-height: 32px;
+}
+.bingo-book button:hover { box-shadow: 0 0 0 1px #d08b38 inset; }
+.bingo-book button.danger:hover { box-shadow: 0 0 0 1px #b33a2b inset; }
+.bingo-book .bb-empty {
+  padding: 20px;
+  text-align: center;
+  color: #5d5345;
+}
+
+.bingo-book .bb-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.bingo-book .bb-poster-card {
+  width: min(100%, 420px);
+  padding: 14px;
+  border: 1px solid #a9997e;
+  border-radius: 6px;
+}
+.bingo-book .bb-poster-card.bg-parchment { background: radial-gradient(circle at 30% 20%, #f5efdd 0%, #e6d7b2 70%, #d1b888 100%); }
+.bingo-book .bb-poster-card.bg-page { background: repeating-linear-gradient(0deg, #ece8db 0 28px, #e5e0d0 28px 29px); }
+.bingo-book .bb-poster-card.bg-dark { background: linear-gradient(#3b352d, #27231f); }
+.bingo-book .bb-poster-card.bg-clean { background: #f6f6f4; }
+.bingo-book .bb-poster-inner {
+  position: relative;
+  min-height: 300px;
+  border: 2px solid rgba(70, 56, 38, 0.75);
+  background: rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.bingo-book .bb-poster-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 520px;
+  object-fit: contain;
+}
+.bingo-book .bb-rank-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  background: rgba(19, 19, 19, 0.78);
+  color: #fff;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.bingo-book .bb-stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  font-size: clamp(34px, 5vw, 64px);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 6px 18px;
+  border: 5px solid currentColor;
+  border-radius: 6px;
+  opacity: 0.6;
+  background: rgba(255,255,255,0.08);
+  pointer-events: none;
+}
+.bingo-book .stamp-wanted { color: #9a1d1d; }
+.bingo-book .stamp-dead { color: #4a1717; }
+.bingo-book .stamp-captured { color: #225f95; }
+.bingo-book .stamp-missing { color: #7c5c14; }
+.bingo-book .stamp-cleared { color: #2a7e38; }
+.bingo-book .bb-preview-title {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+.bingo-book .bb-preview-notes {
+  font-size: 13px;
+  color: #50483d;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .bingo-book .bb-body { grid-template-columns: 220px 1fr; }
+  .bingo-book .bb-editor-grid { grid-template-columns: 1fr; }
+}
+.bingo-book .bb-access h3 { border-bottom: 1px solid #b7ad98; padding-bottom: 8px; }
+.bingo-book .bb-user { display: block; padding: 7px; border-bottom: 1px solid #c7bfad; }
+.bingo-book .bb-user input { vertical-align: middle; }
+.bingo-book .bb-sidebar-foot button { display: block; width: 100%; margin-top: 5px; }
