@@ -21,7 +21,8 @@ const S = {
   chatOpen: false,
   chatAudience: 'everyone',
   chatRecipients: [],
-  rankFilter: 'all'
+  rankFilter: 'all',
+  bountySort: { bingo: 'none', target: 'none' }
 };
 let win = null;
 let renderNonce = 0;
@@ -171,6 +172,42 @@ function rankCategoriesHTML(allPosters) {
 }
 
 // Non-GMs only see the book's navigation and image. No editor metadata.
+// The original bounty is printed inside an uploaded image. Sort on a separate,
+// GM-entered numeric amount; reuse legacy reward metadata where available.
+function bountyAmount(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const plain = String(value).trim().match(/^[\s]*([0-9][0-9\s,.]*)/);
+  if (!plain) return null;
+  const digits = plain[1].replace(/[\s,.]/g, '');
+  const number = Number(digits);
+  return digits && Number.isSafeInteger(number) ? number : null;
+}
+function bountyFor(page) {
+  const explicit = page.getFlag(MOD, 'bounty');
+  return bountyAmount(explicit === undefined ? page.getFlag(MOD, 'reward') : explicit);
+}
+function orderByBounty(posters, direction) {
+  if (direction !== 'high' && direction !== 'low') return posters;
+  return posters.map((page, index) => ({ page, index, amount: bountyFor(page) }))
+    .sort((a, b) => {
+      if (a.amount === null) return b.amount === null ? a.index - b.index : 1;
+      if (b.amount === null) return -1;
+      const difference = direction === 'high' ? b.amount - a.amount : a.amount - b.amount;
+      return difference || a.index - b.index;
+    }).map(entry => entry.page);
+}
+function bountySortHTML() {
+  const value = S.bountySort[S.book] || 'none';
+  return `<div class="bb-bounty-sort">
+    <label for="bb-bounty-order">Sort by Bounty</label>
+    <select id="bb-bounty-order" data-bounty-sort aria-label="Sort posters by bounty">
+      <option value="none"${value === 'none' ? ' selected' : ''}>Original order</option>
+      <option value="high"${value === 'high' ? ' selected' : ''}>Highest to Lowest</option>
+      <option value="low"${value === 'low' ? ' selected' : ''}>Lowest to Highest</option>
+    </select>
+  </div>`;
+}
+
 function playerViewHTML(page) {
   if (!page) return `<section class="bb-player-stage">${emptyState(false)}</section>`;
   return `<section class="bb-player-stage" aria-label="Poster preview">
@@ -275,6 +312,7 @@ function formHTML(page, gm) {
   const rank = rankFor(page.getFlag(MOD, 'rank'));
   const background = page.getFlag(MOD, 'background') ?? 'parchment';
   const notes = page.getFlag(MOD, 'notes') ?? '';
+  const bounty = bountyFor(page);
 
   return `
     <section class="bb-editor">
@@ -305,6 +343,8 @@ function formHTML(page, gm) {
             ${gm ? `<select data-field="status">${STATUSES.map(s => `<option value="${esc(s)}"${s === status ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>` : `<div class="bb-readonly">${esc(status)}</div>`}
             <label>Rank</label>
             ${gm ? `<select data-field="rank">${RANKS.map(s => `<option value="${esc(s)}"${s === rank ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>` : `<div class="bb-readonly">${esc(rank)}</div>`}
+            <label>Bounty (GP)</label>
+            ${gm ? `<input type="number" min="0" step="1" data-field="bounty" placeholder="e.g. 5500" value="${esc(bounty ?? '')}">` : ''}
             <label>Background</label>
             ${gm ? `<select data-field="background">${Object.entries(BACKGROUNDS).map(([k,v]) => `<option value="${esc(k)}"${k === background ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>` : `<div class="bb-readonly">${esc(BACKGROUNDS[background] || background)}</div>`}
           </div>
@@ -393,7 +433,7 @@ async function draw(root) {
     await ensureBookJournal('target');
   }
   const allPosters = getPosters(S.book);
-  const posters = S.rankFilter === 'all' ? allPosters : allPosters.filter(p => rankFor(p.getFlag(MOD, 'rank')) === S.rankFilter);
+  const posters = S.rankFilter === 'all' ? allPosters : orderByBounty(allPosters.filter(p => rankFor(p.getFlag(MOD, 'rank')) === S.rankFilter), S.bountySort[S.book]);
   if (!posters.some(p => p.id === S.selected)) S.selected = posters[0]?.id ?? null;
   const page = getSelectedPage();
 
@@ -413,6 +453,7 @@ async function draw(root) {
             ${gm ? `<button type="button" data-act="add-poster"><i class="fa-solid fa-plus"></i></button>` : ''}
           </div>
           ${rankCategoriesHTML(allPosters)}
+          ${S.rankFilter === 'all' ? '' : bountySortHTML()}
           <div class="bb-poster-list">
             ${posters.length ? posters.map(p => {
               const thumb = posterThumb(p);
@@ -534,6 +575,13 @@ function mount(root, app) {
   });
 
   root.addEventListener('change', async ev => {
+    const sortSelect = ev.target.closest('[data-bounty-sort]');
+    if (sortSelect) {
+      if (!['none', 'high', 'low'].includes(sortSelect.value)) return;
+      S.bountySort[S.book] = sortSelect.value;
+      refresh();
+      return;
+    }
     if (!game.user.isGM) return;
     const permissionBox = ev.target.closest('[data-permission-book][data-user]');
     if (permissionBox) {
@@ -569,13 +617,25 @@ function mount(root, app) {
         case 'uuid': await page.setFlag(MOD, 'uuid', value); break;
         case 'status': await page.setFlag(MOD, 'status', value); break;
         case 'rank': await page.setFlag(MOD, 'rank', value); break;
+        case 'bounty': {
+          const amount = value.trim();
+          if (amount && (!/^\d+$/.test(amount) || !Number.isSafeInteger(Number(amount)))) {
+            ui.notifications.warn('Bounty must be a whole number of GP.');
+            refresh();
+            return;
+          }
+          await page.setFlag(MOD, 'bounty', amount === '' ? '' : Number(amount));
+          break;
+        }
         case 'background': await page.setFlag(MOD, 'background', value); break;
         case 'notes': await page.setFlag(MOD, 'notes', value); break;
         default: return;
       }
       // A user may select another poster while the save is in-flight.
       if (currentPage()?.id === page.id) {
-        if (field.dataset.field === 'rank' && S.rankFilter !== 'all' && rankFor(value) !== S.rankFilter) {
+        if (field.dataset.field === 'bounty') {
+          refresh();
+        } else if (field.dataset.field === 'rank' && S.rankFilter !== 'all' && rankFor(value) !== S.rankFilter) {
           S.selected = null;
           refresh();
         } else {

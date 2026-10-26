@@ -43,3 +43,8 @@ Automated test checks cover permission migration, journal access synchronization
 - Rank categories (All, S, A, B, C, D) in the left sidebar filter existing posters without duplicating data. Legacy numeric ranks are mapped to S–D.
 - The original large diagonal status stamp is restored; it scales to fit complete uncropped chat poster images, including long words.
 - Separate Bingo/Target permissions and targeted Show in Chat remain intact.
+
+
+## v0.3.7: Bounty sorting
+
+Within any Rank S–D category, select Original order, Highest to Lowest, or Lowest to Highest. The choice is separate for Bingo Book and Target Book. A GM may enter Bounty (GP) for each poster; old reward flags are also recognized. The module does not attempt to read gold amounts out of uploaded poster images. Entries without bounty appear last in either numeric order. Nothing else in the poster or chat UI changes.

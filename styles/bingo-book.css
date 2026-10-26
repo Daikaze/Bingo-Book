@@ -500,3 +500,19 @@
   .bingo-book .bb-body { grid-template-columns: 195px 1fr; }
   .bingo-book .bb-player-stage { padding: 10px; }
 }
+
+/* Bounty controls follow the existing V11 parchment form style. */
+.bingo-book .bb-section input[type="number"] {
+  width: 100%; min-height: 32px; border: 1px solid #b9af9b;
+  border-radius: 4px; background: #f8f5ef;
+}
+.bingo-book .bb-bounty-sort {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 7px 9px; border-bottom: 1px solid #b7ad98;
+  background: rgba(255,255,255,.19);
+}
+.bingo-book .bb-bounty-sort label { font-size: 12px; font-weight: 700; color: #413424; }
+.bingo-book .bb-bounty-sort select {
+  min-height: 30px; width: 100%; border-radius: 4px;
+  border: 1px solid #bcae92; background: #f8f5ef; color: #30281b;
+}
