@@ -1,0 +1,277 @@
+/* Bingo Book / Target Book 0.2.0 — unified Foundry VTT v11 interface */
+.bingo-book {
+  --bb-bg: #111923;
+  --bb-base: #192433;
+  --bb-card: #202d3d;
+  --bb-raised: #263549;
+  --bb-border: #415269;
+  --bb-gold: #d8b979;
+  --bb-gold-strong: #f1d69a;
+  --bb-text: #f1f4f9;
+  --bb-muted: #bbc8d9;
+  --bb-danger: #f0a5a5;
+  --bb-radius: 7px;
+}
+.bingo-book .window-content {
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: var(--bb-bg) !important;
+  color: var(--bb-text) !important;
+}
+.bingo-book .bb-root { height: 100%; min-height: 0; }
+.bingo-book .bb-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bb-bg);
+  color: var(--bb-text);
+  font-family: "Signika", "Segoe UI", Arial, sans-serif;
+}
+.bingo-book .bb-shell *, .bingo-book .bb-shell *::before, .bingo-book .bb-shell *::after { box-sizing: border-box; }
+.bingo-book .bb-shell h2, .bingo-book .bb-shell h3, .bingo-book .bb-shell p { color: inherit; }
+
+/* Foundation: consistent readable fields, including v11 native selects/options. */
+.bingo-book .bb-shell button,
+.bingo-book .bb-shell input[type="text"],
+.bingo-book .bb-shell select {
+  font: inherit;
+  border: 1px solid var(--bb-border) !important;
+  border-radius: 5px !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  background: var(--bb-base) !important;
+  color: var(--bb-text) !important;
+  min-height: 31px;
+  height: auto;
+  line-height: 1.3;
+}
+.bingo-book .bb-shell input[type="text"], .bingo-book .bb-shell select { padding: 5px 8px !important; }
+.bingo-book .bb-shell select { appearance: auto; -webkit-appearance: auto; cursor: pointer; }
+.bingo-book .bb-shell option, .bingo-book .bb-shell optgroup { background: #162231 !important; color: #f6f7fb !important; }
+.bingo-book .bb-shell input::placeholder { color: #aab8c9 !important; opacity: 1; }
+.bingo-book .bb-shell button { width: auto; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.bingo-book .bb-shell button:not(:disabled):hover { background: #31445b !important; border-color: var(--bb-gold) !important; color: #fff !important; }
+.bingo-book .bb-shell button:focus-visible,
+.bingo-book .bb-shell input:focus-visible,
+.bingo-book .bb-shell select:focus-visible,
+.bingo-book .bb-entry-portrait:focus-visible { outline: 2px solid var(--bb-gold-strong) !important; outline-offset: 2px; }
+.bingo-book .bb-shell .bb-primary {
+  background: #a67f39 !important;
+  border-color: #e3c584 !important;
+  color: #171b24 !important;
+  font-weight: 700;
+}
+.bingo-book .bb-shell .bb-primary:hover { color: #0e1420 !important; background: #e7c780 !important; }
+.bingo-book .bb-shell .bb-danger { color: var(--bb-danger) !important; }
+.bingo-book .bb-shell .bb-danger:hover { border-color: #e19c9c !important; }
+.bingo-book .bb-shell .bb-muted { color: var(--bb-muted); }
+
+/* Main book tabs — not a category sidebar. */
+.bingo-book .bb-top-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  padding: 10px 14px 0;
+  background: #0c121c;
+  border-bottom: 2px solid #6b5636;
+}
+.bingo-book .bb-shell .bb-tab {
+  min-width: 160px;
+  min-height: 42px;
+  margin-bottom: -2px;
+  padding: 9px 16px;
+  border-radius: 7px 7px 0 0 !important;
+  border-color: #304154 !important;
+  border-bottom: 2px solid #6b5636 !important;
+  background: #1a2534 !important;
+  color: #d6dfed !important;
+  font-size: 1.04em;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+.bingo-book .bb-shell .bb-tab.active {
+  background: var(--bb-base) !important;
+  color: var(--bb-gold-strong) !important;
+  border-color: var(--bb-gold) !important;
+  border-bottom-color: var(--bb-base) !important;
+}
+.bingo-book .bb-tab i { font-size: 1.05em; }
+
+.bingo-book .bb-toolbar {
+  flex: 0 0 auto;
+  padding: 14px 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  border-bottom: 1px solid var(--bb-border);
+  background: var(--bb-base);
+}
+.bingo-book .bb-title { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.bingo-book .bb-title h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.48em;
+  line-height: 1.15;
+  font-weight: 700;
+  margin: 0;
+  border: 0;
+  color: var(--bb-gold-strong) !important;
+}
+.bingo-book .bb-title span { font-size: .85em; color: var(--bb-muted); }
+.bingo-book .bb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bingo-book .bb-actions button { min-height: 33px; }
+.bingo-book .bb-actions i, .bingo-book .bb-template-buttons i { margin-right: 5px; }
+.bingo-book .bb-shell .bb-selected { border-color: var(--bb-gold) !important; background: #3c3e3e !important; color: #ffe0a2 !important; }
+
+.bingo-book .bb-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 22px;
+  background: radial-gradient(circle at 45% 5%, #243246 0%, #141e2b 57%, #111923 100%);
+  scrollbar-color: #60718a #182536;
+}
+.bingo-book .bb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 295px), 1fr));
+  gap: 22px;
+  align-items: start;
+}
+.bingo-book .bb-empty, .bingo-book .bb-panel-empty {
+  max-width: 440px;
+  margin: 65px auto;
+  text-align: center;
+  color: var(--bb-muted);
+}
+.bingo-book .bb-empty > i, .bingo-book .bb-panel-empty > i { display: block; font-size: 44px; margin-bottom: 16px; color: var(--bb-gold); }
+.bingo-book .bb-empty h3 { font-size: 1.3em; margin: 0 0 9px; color: var(--bb-text); }
+.bingo-book .bb-empty p, .bingo-book .bb-panel-empty p { font-size: 1em; line-height: 1.5; }
+
+/* Cards: neutral by default. Only user-uploaded imagery acts as a template. */
+.bingo-book .bb-entry {
+  min-width: 0;
+  background: var(--bb-card);
+  border: 1px solid #52627a;
+  border-radius: var(--bb-radius);
+  overflow: hidden;
+  box-shadow: 0 5px 16px #0007;
+}
+.bingo-book .bb-paper {
+  position: relative;
+  min-height: 325px;
+  padding: 16px;
+  isolation: isolate;
+  background: #263343;
+}
+.bingo-book .bb-has-template .bb-paper { min-height: 520px; padding: 14px; }
+.bingo-book .bb-template-back {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  background: #2b3648;
+}
+.bingo-book .bb-template-back.bb-fit-cover { object-fit: cover; }
+.bingo-book .bb-template-back.bb-fit-contain { object-fit: contain; }
+.bingo-book .bb-has-template .bb-paper::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, #0a111aa8 0%, #0a111a60 27%, #0a111ab5 100%);
+}
+.bingo-book .bb-paper-content { position: relative; z-index: 1; display: flex; flex-direction: column; min-width: 0; gap: 9px; }
+.bingo-book .bb-paper.bb-place-bottom { display: flex; flex-direction: column; justify-content: flex-end; }
+.bingo-book .bb-paper.bb-place-top { display: flex; flex-direction: column; justify-content: flex-start; }
+.bingo-book .bb-has-template .bb-paper-content { background: #101925b8; border-radius: 5px; padding: 10px; }
+.bingo-book .bb-entry-topline { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--bb-gold-strong); font-size: .68em; letter-spacing: .16em; font-weight: 700; }
+.bingo-book .bb-status-badge { background: #44566d; border: 1px solid #6e829c; color: white; letter-spacing: .02em; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; }
+.bingo-book .bb-status-claimed { background: #285344; border-color: #5d9b7c; }
+.bingo-book .bb-status-lost { background: #703f40; border-color: #c98c8c; }
+.bingo-book .bb-status-dropped { background: #424650; border-color: #818b9b; }
+.bingo-book .bb-entry-portrait {
+  height: 178px;
+  width: 100%;
+  border: 1px solid #788295;
+  background: #141d2b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bingo-book .bb-entry-portrait[data-act] { cursor: pointer; }
+.bingo-book .bb-entry-portrait:hover[data-act] { border-color: var(--bb-gold); }
+.bingo-book .bb-entry-portrait-img { display: block; height: 100%; width: 100%; object-fit: contain; border: none !important; }
+.bingo-book .bb-portrait-placeholder { display: flex; height: 100%; flex-direction: column; gap: 10px; align-items: center; justify-content: center; color: #bac7d7; font-size: .86em; }
+.bingo-book .bb-portrait-placeholder i { font-size: 26px; }
+.bingo-book .bb-shell .bb-entry-name { width: 100%; font-size: 1.18em; line-height: 1.3; font-weight: 700; margin: 0; text-align: center; min-height: 29px; }
+.bingo-book .bb-shell h3.bb-entry-name { color: #fff8eb; overflow-wrap: anywhere; }
+.bingo-book .bb-reward { display: flex; flex-direction: column; gap: 5px; }
+.bingo-book .bb-reward label { color: #d9c391; font-size: .78em; font-weight: 700; }
+.bingo-book .bb-reward strong { overflow-wrap: anywhere; }
+.bingo-book .bb-entry-desc { min-height: 32px; max-height: 230px; overflow-y: auto; overflow-wrap: anywhere; line-height: 1.45; color: var(--bb-text); }
+.bingo-book .bb-entry-desc p { margin: 3px 0 9px; }
+.bingo-book .bb-entry-desc img { display: inline-block; height: auto; max-width: 100%; border: 0; }
+.bingo-book .bb-entry-desc a, .bingo-book .bb-entry-desc a.content-link { color: #ffe0a2 !important; }
+.bingo-book .bb-entry-desc a.content-link { background: #2a3648; border: 1px solid #a48a5b; }
+.bingo-book .bb-description-hint { color: var(--bb-muted); font-size: .85em; font-style: italic; }
+.bingo-book .bb-link { display: flex; gap: 8px; align-items: center; min-height: 25px; overflow-wrap: anywhere; font-size: .8em; }
+.bingo-book .bb-link a { color: var(--bb-gold-strong); cursor: pointer; }
+.bingo-book .bb-shell .bb-link button { min-height: 22px; padding: 2px 6px; }
+
+/* Status and template selectors: explicitly readable in Foundry v11. */
+.bingo-book .bb-entry-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #52627a;
+  background: #131d2a;
+  align-items: flex-end;
+}
+.bingo-book .bb-control-field { display: flex; flex: 1 1 90px; min-width: 0; flex-direction: column; gap: 5px; font-weight: 700; font-size: .74em; color: #d8dfed; }
+.bingo-book .bb-control-field select { max-width: 100%; width: 100%; font-size: 1.15em; }
+.bingo-book .bb-control-field.bb-template-field { flex: 1.5 1 120px; }
+.bingo-book .bb-shell .bb-icon-btn { flex: 0 0 34px; width: 34px; padding: 5px 6px; }
+
+/* Template gallery + access panel. */
+.bingo-book .bb-manager { max-width: 890px; margin: 0 auto; }
+.bingo-book .bb-manager-heading { display: flex; align-items: flex-start; gap: 20px; justify-content: space-between; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--bb-border); }
+.bingo-book .bb-manager h3 { font-family: Georgia, "Times New Roman", serif; font-size: 1.3em; margin: 0 0 7px; color: var(--bb-gold-strong) !important; border: 0; }
+.bingo-book .bb-manager p { margin: 0 0 12px; line-height: 1.55; color: #d3deeb; }
+.bingo-book .bb-template-list { display: flex; flex-direction: column; gap: 12px; margin-top: 17px; }
+.bingo-book .bb-template-row { display: flex; align-items: center; gap: 16px; border: 1px solid var(--bb-border); background: var(--bb-base); padding: 12px; border-radius: 7px; }
+.bingo-book .bb-template-preview { flex: 0 0 108px; width: 108px; height: 132px; display: flex; justify-content: center; align-items: center; background: #0e1622; border: 1px solid #43546b; border-radius: 4px; }
+.bingo-book .bb-template-preview img { width: 100%; height: 100%; object-fit: contain; border: 0; }
+.bingo-book .bb-template-preview i { font-size: 28px; color: var(--bb-gold); }
+.bingo-book .bb-template-options { flex: 1 1 auto; min-width: 130px; display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 10px; }
+.bingo-book .bb-template-options label { display: flex; flex-direction: column; gap: 5px; font-size: .8em; color: #cbd9e8; }
+.bingo-book .bb-template-options input, .bingo-book .bb-template-options select { width: 100%; }
+.bingo-book .bb-template-options label:first-child { grid-column: 1 / -1; }
+.bingo-book .bb-template-buttons { display: flex; flex: 0 0 auto; flex-direction: column; gap: 8px; align-items: stretch; }
+.bingo-book .bb-template-buttons button { min-height: 34px; }
+.bingo-book .bb-panel-empty { margin: 58px auto; }
+.bingo-book .bb-panel-empty span { line-height: 1.5; }
+.bingo-book .bb-player-manager { background: var(--bb-base); border: 1px solid var(--bb-border); border-radius: 7px; padding: 24px; max-width: 600px; }
+.bingo-book .bb-player-list { display: flex; flex-direction: column; gap: 8px; }
+.bingo-book .bb-player { display: flex; align-items: center; gap: 10px; padding: 10px; background: #25354a; color: var(--bb-text); border-radius: 5px; cursor: pointer; }
+.bingo-book .bb-player input[type="checkbox"] { margin: 0; width: 17px; height: 17px; accent-color: #d8b979; }
+.bingo-book .bb-player span { overflow-wrap: anywhere; }
+@media (max-width: 690px) {
+  .bingo-book .bb-top-tabs { padding: 7px 7px 0; }
+  .bingo-book .bb-shell .bb-tab { min-width: 0; flex: 1 1 auto; padding: 8px 6px; }
+  .bingo-book .bb-main { padding: 12px; }
+  .bingo-book .bb-toolbar { padding: 10px; }
+  .bingo-book .bb-template-row { align-items: flex-start; flex-wrap: wrap; }
+  .bingo-book .bb-template-options { flex: 1 1 calc(100% - 125px); }
+  .bingo-book .bb-template-buttons { flex-direction: row; }
+}
